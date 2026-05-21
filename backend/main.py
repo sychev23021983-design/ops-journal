@@ -116,6 +116,7 @@ class IncidentUpdate(IncidentCreate):
 
 class SettingsUpdate(BaseModel):
     viewer_password: Optional[str] = None
+    logo_size: Optional[str] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -180,6 +181,9 @@ def update_settings(data: SettingsUpdate, _=Depends(require_admin)):
         if data.viewer_password:
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('viewer_password', ?)",
                         (data.viewer_password,))
+        if data.logo_size:
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_size', ?)",
+                        (data.logo_size,))
         conn.commit()
         return {"ok": True}
     finally:
@@ -210,11 +214,13 @@ def get_public_settings():
     """Публичные настройки — доступны без авторизации"""
     conn = get_conn()
     try:
-        logo = conn.execute("SELECT value FROM settings WHERE key='logo_url'").fetchone()
+        logo    = conn.execute("SELECT value FROM settings WHERE key='logo_url'").fetchone()
         favicon = conn.execute("SELECT value FROM settings WHERE key='favicon_url'").fetchone()
+        size    = conn.execute("SELECT value FROM settings WHERE key='logo_size'").fetchone()
         return {
-            "logo_url": logo["value"] if logo else None,
+            "logo_url":    logo["value"]    if logo    else None,
             "favicon_url": favicon["value"] if favicon else None,
+            "logo_size":   size["value"]    if size    else "32",
         }
     finally:
         conn.close()
