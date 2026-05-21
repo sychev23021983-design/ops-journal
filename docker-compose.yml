@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    container_name: ops-backend
+    restart: always
+    ports:
+      - "127.0.0.1:8007:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=/app/data/ops.db
+      - SECRET_KEY=ops-secret-key-change-me-2026
+      - ADMIN_PASSWORD=admin123
+
+  frontend:
+    build: ./frontend
+    container_name: ops-frontend
+    restart: always
+    ports:
+      - "0.0.0.0:8080:80"
+    depends_on:
+      - backend
