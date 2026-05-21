@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
-import { guiltyLabel, typeLabel, statusLabel, guiltyBadge, employeeActionLabel, ВИНОВНИК_PARTIES } from '../api/constants'
+import { guiltyLabel, typeLabel, statusLabel, guiltyBadge, employeeActionLabel, GUILTY_PARTIES } from '../api/constants'
 import dayjs from 'dayjs'
 import 'dayjs/locale/ru'
 dayjs.locale('ru')
@@ -81,7 +81,7 @@ export default function ReportPage() {
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:20}}>
             <div className="card">
               <div style={{fontWeight:600, marginBottom:12}}>По виновной стороне</div>
-              {ВИНОВНИК_PARTIES.map(g => {
+              {GUILTY_PARTIES.map(g => {
                 const row = stats.by_guilty?.find(x => x.guilty_party === g.value)
                 const cnt = row?.cnt || 0
                 const pct = stats.total ? Math.round(cnt / stats.total * 100) : 0
