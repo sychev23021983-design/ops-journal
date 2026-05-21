@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
-import { guiltyLabel, typeLabel, statusLabel, guiltyBadge, employeeActionLabel, GUILTY_PARTIES } from '../api/constants'
+import { guiltyLabel, typeLabel, statusLabel, guiltyBadge, employeeActionLabel, ВИНОВНИК_PARTIES } from '../api/constants'
 import dayjs from 'dayjs'
 import 'dayjs/locale/ru'
 dayjs.locale('ru')
@@ -16,7 +16,7 @@ export default function ReportPage() {
     setLoading(true)
     Promise.all([
       api.stats({ month: m }),
-      api.incidents.list({ month: m })
+      api.инцидентов.list({ month: m })
     ]).then(([s, i]) => {
       setStats(s)
       setIncidents(i)
@@ -37,21 +37,21 @@ export default function ReportPage() {
   const guardCount = stats?.by_guilty?.find(x => x.guilty_party === 'guard_department')?.cnt || 0
   const guardPercent = stats?.total ? Math.round(guardCount / stats.total * 100) : 0
   const monthLabel = dayjs(month + '-01').format('MMMM YYYY')
-  const noMasterIncidents = incidents.filter(i => i.repair_request_filed && !i.master_arrived_at && i.status !== 'new')
+  const noMasterIncidents = инцидентов.filter(i => i.repair_заявкаuest_filed && !i.master_arrived_at && i.status !== 'new')
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <div className="page-title">Otchet OPS</div>
-          <div className="page-subtitle">Monthly report</div>
+          <div className="page-title">Отчёт о работе ОПС</div>
+          <div className="page-subtitle">Ежемесячный отчёт по инцидентам охранной сигнализации</div>
         </div>
         <div style={{display:'flex', gap:10}}>
           <select value={month} onChange={e => handleMonthChange(e.target.value)} style={{width:'auto'}}>
             {months.length === 0 && <option value={month}>{month}</option>}
             {months.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
-          <button className="btn btn-primary" onClick={() => window.print()}>Print</button>
+          <button className="btn btn-primary" onClick={() => window.print()}>Печать / PDF</button>
         </div>
       </div>
 
@@ -73,15 +73,15 @@ export default function ReportPage() {
             </div>
             <div className="stat-card">
               <div className="label">Avg response</div>
-              <div className="value">{stats.avg_response_min ?? '-'}</div>
-              <div className="sub">min</div>
+              <div className="value">{stats.avg_response_мин ?? '-'}</div>
+              <div className="sub">мин</div>
             </div>
           </div>
 
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:20}}>
             <div className="card">
-              <div style={{fontWeight:600, marginBottom:12}}>By guilty party</div>
-              {GUILTY_PARTIES.map(g => {
+              <div style={{fontWeight:600, marginBottom:12}}>По виновной стороне</div>
+              {ВИНОВНИК_PARTIES.map(g => {
                 const row = stats.by_guilty?.find(x => x.guilty_party === g.value)
                 const cnt = row?.cnt || 0
                 const pct = stats.total ? Math.round(cnt / stats.total * 100) : 0
@@ -95,7 +95,7 @@ export default function ReportPage() {
               })}
             </div>
             <div className="card">
-              <div style={{fontWeight:600, marginBottom:12}}>By type</div>
+              <div style={{fontWeight:600, marginBottom:12}}>По типу инцидентов</div>
               {(stats.by_type || []).map(row => (
                 <div className="bar-row" key={row.incident_type}>
                   <div className="bar-label">{typeLabel(row.incident_type)}</div>
@@ -115,14 +115,14 @@ export default function ReportPage() {
                 </tr>
               </thead>
               <tbody>
-                {incidents.map(inc => (
+                {инцидентов.map(inc => (
                   <tr key={inc.id}>
                     <td style={{fontFamily:'var(--mono)',fontSize:11,whiteSpace:'nowrap'}}>{dayjs(inc.event_at).format('DD.MM.YY HH:mm')}</td>
                     <td style={{fontSize:12}}>{typeLabel(inc.incident_type)}</td>
                     <td style={{fontSize:12,maxWidth:160}}>{inc.description || '-'}</td>
-                    <td style={{fontSize:12}}>{employeeActionLabel(inc.employee_actions)}{inc.repair_request_filed ? <span className="flag-ok"> req</span> : <span className="flag-warn"> no req</span>}</td>
-                    <td style={{fontSize:12,maxWidth:140}}>{inc.guard_response || '-'}{inc.repair_request_filed && !inc.master_arrived_at ? <span className="flag-warn"> no master</span> : ''}</td>
-                    <td style={{fontFamily:'var(--mono)',textAlign:'center'}}>{inc.response_time_min ?? '-'}</td>
+                    <td style={{fontSize:12}}>{employeeActionLabel(inc.employee_actions)}{inc.repair_заявкаuest_filed ? <span className="flag-ok"> заявка</span> : <span className="flag-warn"> no заявка</span>}</td>
+                    <td style={{fontSize:12,maxWidth:140}}>{inc.guard_response || '-'}{inc.repair_заявкаuest_filed && !inc.master_arrived_at ? <span className="flag-warn"> мастер не приехал</span> : ''}</td>
+                    <td style={{fontFamily:'var(--mono)',textAlign:'center'}}>{inc.response_time_мин ?? '-'}</td>
                     <td style={{fontSize:12,maxWidth:140}}>{inc.resolution || '-'}</td>
                     <td><span className={'badge badge-' + guiltyBadge(inc.guilty_party)}>{guiltyLabel(inc.guilty_party)}</span></td>
                   </tr>
@@ -133,10 +133,10 @@ export default function ReportPage() {
 
           <div className="card">
             <p style={{lineHeight:1.8}}>
-              Period: <strong>{monthLabel}</strong>. Total: <strong>{stats.total}</strong> incidents.
-              Guard dept fault: <strong style={{color:'var(--danger)'}}>{guardCount} ({guardPercent}%)</strong>.
-              {noMasterIncidents.length > 0 && <span> Master not arrived: <strong>{noMasterIncidents.length}</strong> times (contract violation).</span>}
-              {stats.avg_response_min && <span> Avg response: <strong>{stats.avg_response_min} min</strong>.</span>}
+              Период: <strong>{monthLabel}</strong>. Всего: <strong>{stats.total}</strong> инцидентов.
+              Вина охраны: <strong style={{color:'var(--danger)'}}>{guardCount} ({guardPercent}%)</strong>.
+              {noMasterIncidents.length > 0 && <span> Мастер не прибыл: <strong>{noMasterIncidents.length}</strong> раз (нарушение договора).</span>}
+              {stats.avg_response_мин && <span> Среднее время реакции: <strong>{stats.avg_response_мин} мин</strong>.</span>}
             </p>
           </div>
         </div>
