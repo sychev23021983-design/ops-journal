@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import {
   guiltyLabel, typeLabel, statusLabel, priorityLabel,
-  guiltyBadge, employeeActionLabel,
+  rootCauseLabel, guiltyBadge, employeeActionLabel,
   INCIDENT_TYPES, GUILTY_PARTIES, STATUSES
 } from '../api/constants'
 import IncidentModal from '../components/IncidentModal'
@@ -50,9 +50,8 @@ export default function IncidentsPage() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="filters-bar">
-        <span className="filter-label">Фильтр по:</span>
+        <span className="filter-label">Фильтр:</span>
         <select value={filters.month} onChange={e => setFilter('month', e.target.value)}>
           <option value="">Все месяцы</option>
           {months.map(m => <option key={m} value={m}>{m}</option>)}
@@ -75,12 +74,9 @@ export default function IncidentsPage() {
             × Сбросить
           </button>
         )}
-        <span style={{marginLeft:'auto', fontSize:12, color:'var(--text2)'}}>
-          Найдено: {incidents.length}
-        </span>
+        <span style={{marginLeft:'auto', fontSize:12, color:'var(--text2)'}}>Найдено: {incidents.length}</span>
       </div>
 
-      {/* Table */}
       <div className="card" style={{padding:0}}>
         {loading ? (
           <div className="empty"><div>Загрузка...</div></div>
@@ -99,11 +95,11 @@ export default function IncidentsPage() {
                   <th>Дата события</th>
                   <th>Тип инцидента</th>
                   <th>Описание</th>
+                  <th>Причина</th>
                   <th>Действия сотрудника</th>
                   <th>Виновная сторона</th>
                   <th>Реакция (мин)</th>
                   <th>Статус</th>
-                  <th>Приоритет</th>
                   <th></th>
                 </tr>
               </thead>
@@ -116,13 +112,12 @@ export default function IncidentsPage() {
                       <span style={{color:'var(--text2)'}}>{dayjs(inc.event_at).format('HH:mm')}</span>
                     </td>
                     <td style={{fontWeight:500}}>{typeLabel(inc.incident_type)}</td>
-                    <td style={{maxWidth:200, color:'var(--text2)', fontSize:12}}>
+                    <td style={{maxWidth:180, color:'var(--text2)', fontSize:12}}>
                       {inc.description
-                        ? inc.description.length > 80
-                          ? inc.description.slice(0,80) + '…'
-                          : inc.description
+                        ? inc.description.length > 70 ? inc.description.slice(0,70)+'…' : inc.description
                         : '—'}
                     </td>
+                    <td style={{fontSize:12}}>{rootCauseLabel(inc.root_cause)}</td>
                     <td style={{fontSize:12}}>
                       {employeeActionLabel(inc.employee_actions)}
                       {inc.repair_request_filed
@@ -140,12 +135,11 @@ export default function IncidentsPage() {
                       {inc.response_time_min ?? '—'}
                     </td>
                     <td><span className={`badge badge-${inc.status}`}>{statusLabel(inc.status)}</span></td>
-                    <td><span className={`badge badge-${inc.priority}`}>{priorityLabel(inc.priority)}</span></td>
                     <td>
                       <div style={{display:'flex', gap:4}}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setModal(inc)} title="Редактировать">✏️</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setModal(inc)}>✏️</button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(inc.id)}
-                          disabled={deleting === inc.id} title="Удалить">🗑</button>
+                          disabled={deleting === inc.id}>🗑</button>
                       </div>
                     </td>
                   </tr>

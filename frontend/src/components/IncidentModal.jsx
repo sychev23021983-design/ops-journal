@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
-import { INCIDENT_TYPES, GUILTY_PARTIES, STATUSES, PRIORITIES, EMPLOYEE_ACTIONS } from '../api/constants'
+import { INCIDENT_TYPES, GUILTY_PARTIES, ROOT_CAUSES, STATUSES, PRIORITIES, EMPLOYEE_ACTIONS } from '../api/constants'
 import dayjs from 'dayjs'
 
 const EMPTY = {
@@ -8,7 +8,6 @@ const EMPTY = {
   incident_type: 'no_arm',
   description: '',
   discovered_by: '',
-  shift_employee: '',
   employee_actions: '',
   repair_request_filed: false,
   object_left_before_fix: false,
@@ -16,7 +15,7 @@ const EMPTY = {
   guard_response: '',
   master_arrived_at: '',
   response_time_min: '',
-  guilty_party: 'unknown',
+  guilty_party: 'guard_department',
   root_cause: '',
   resolution: '',
   resolved_at: '',
@@ -34,9 +33,9 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
     if (incident) {
       setForm({
         ...incident,
-        event_at:         incident.event_at ? dayjs(incident.event_at).format('YYYY-MM-DDTHH:mm') : '',
+        event_at:          incident.event_at ? dayjs(incident.event_at).format('YYYY-MM-DDTHH:mm') : '',
         master_arrived_at: incident.master_arrived_at ? dayjs(incident.master_arrived_at).format('YYYY-MM-DDTHH:mm') : '',
-        resolved_at:      incident.resolved_at ? dayjs(incident.resolved_at).format('YYYY-MM-DDTHH:mm') : '',
+        resolved_at:       incident.resolved_at ? dayjs(incident.resolved_at).format('YYYY-MM-DDTHH:mm') : '',
         response_time_min: incident.response_time_min ?? '',
         repair_request_filed:   !!incident.repair_request_filed,
         object_left_before_fix: !!incident.object_left_before_fix,
@@ -84,7 +83,7 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
           <div className="modal-body">
             {error && <div className="error-msg" style={{marginBottom:16}}>{error}</div>}
 
-            {/* Блок 1: Основное */}
+            {/* Блок 1: Событие */}
             <div className="modal-section-title">Событие</div>
             <div className="form-grid" style={{marginBottom:16}}>
               <div className="field">
@@ -104,15 +103,18 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
                   onChange={e => set('discovered_by', e.target.value)} placeholder="ФИО или должность" />
               </div>
               <div className="field">
-                <label>Сотрудник на смене</label>
-                <input type="text" value={form.shift_employee}
-                  onChange={e => set('shift_employee', e.target.value)} />
+                <label>Причина</label>
+                <select value={form.root_cause} onChange={e => set('root_cause', e.target.value)}>
+                  <option value="">— выберите —</option>
+                  {ROOT_CAUSES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
               </div>
               <div className="field full">
                 <label>Описание события</label>
                 <textarea value={form.description}
                   onChange={e => set('description', e.target.value)}
-                  placeholder="Подробно: что произошло, какие признаки, показания системы" style={{minHeight:70}} />
+                  placeholder="Подробно: что произошло, какие признаки, показания системы"
+                  style={{minHeight:70}} />
               </div>
             </div>
 
@@ -126,14 +128,14 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
                   {EMPLOYEE_ACTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
                 </select>
               </div>
-              <div className="field" style={{justifyContent:'flex-end', gap:16}}>
-                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13}}>
+              <div className="field" style={{justifyContent:'flex-end', gap:12}}>
+                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13, fontWeight:500}}>
                   <input type="checkbox" checked={form.repair_request_filed}
                     onChange={e => set('repair_request_filed', e.target.checked)}
                     style={{width:16, height:16}} />
                   Заявка на ремонт подана
                 </label>
-                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13}}>
+                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13, fontWeight:500}}>
                   <input type="checkbox" checked={form.object_left_before_fix}
                     onChange={e => set('object_left_before_fix', e.target.checked)}
                     style={{width:16, height:16}} />
@@ -141,7 +143,7 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
                     Объект покинут до устранения ⚠️
                   </span>
                 </label>
-                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13}}>
+                <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13, fontWeight:500}}>
                   <input type="checkbox" checked={form.object_under_guard}
                     onChange={e => set('object_under_guard', e.target.checked)}
                     style={{width:16, height:16}} />
@@ -157,7 +159,8 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
                 <label>Реакция охраны</label>
                 <textarea value={form.guard_response}
                   onChange={e => set('guard_response', e.target.value)}
-                  placeholder="Что ответили по телефону, кто приехал, сколько ждали" style={{minHeight:60}} />
+                  placeholder="Что ответили по телефону, кто приехал, сколько ждали"
+                  style={{minHeight:60}} />
               </div>
               <div className="field">
                 <label>Время прибытия мастера</label>
@@ -172,8 +175,8 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
               </div>
             </div>
 
-            {/* Блок 4: Расследование */}
-            <div className="modal-section-title">Расследование и устранение</div>
+            {/* Блок 4: Итог */}
+            <div className="modal-section-title">Итог расследования</div>
             <div className="form-grid" style={{marginBottom:16}}>
               <div className="field">
                 <label>Виновная сторона *</label>
@@ -197,12 +200,6 @@ export default function IncidentModal({ incident, onClose, onSaved }) {
                 <label>Время устранения</label>
                 <input type="datetime-local" value={form.resolved_at}
                   onChange={e => set('resolved_at', e.target.value)} />
-              </div>
-              <div className="field full">
-                <label>Причина</label>
-                <textarea value={form.root_cause}
-                  onChange={e => set('root_cause', e.target.value)}
-                  placeholder="Установленная причина инцидента" style={{minHeight:60}} />
               </div>
               <div className="field full">
                 <label>Что сделано / Устранение</label>

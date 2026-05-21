@@ -13,9 +13,14 @@ export const INCIDENT_TYPES = [
 export const GUILTY_PARTIES = [
   { value: 'guard_department', label: 'Департамент охраны МВД' },
   { value: 'company_employee', label: 'Сотрудник компании' },
-  { value: 'technical_fault',  label: 'Техническая неисправность' },
-  { value: 'contractor',       label: 'Подрядчик' },
-  { value: 'unknown',          label: 'Не установлено' },
+  { value: 'force_majeure',    label: 'Непреодолимая сила' },
+]
+
+export const ROOT_CAUSES = [
+  { value: 'technical_fault', label: 'Техническая неисправность' },
+  { value: 'forgot_arm',      label: 'Забыл поставить под охрану' },
+  { value: 'forgot_disarm',   label: 'Забыл снять с охраны' },
+  { value: 'other',           label: 'Другое' },
 ]
 
 export const STATUSES = [
@@ -33,20 +38,25 @@ export const PRIORITIES = [
 ]
 
 export const EMPLOYEE_ACTIONS = [
-  { value: 'called_duty',        label: 'Позвонил дежурному' },
-  { value: 'filed_repair',       label: 'Подал заявку на ремонт' },
-  { value: 'waited_for_master',  label: 'Дождался мастера' },
-  { value: 'left_without_fix',   label: 'Ушёл без постановки' },
-  { value: 'no_action',          label: 'Не предпринял действий' },
-  { value: 'other',              label: 'Другое' },
+  { value: 'called_duty',       label: 'Позвонил дежурному' },
+  { value: 'filed_repair',      label: 'Подал заявку на ремонт' },
+  { value: 'waited_for_master', label: 'Дождался мастера' },
+  { value: 'left_without_fix',  label: 'Ушёл без постановки' },
+  { value: 'no_action',         label: 'Не предпринял действий' },
+  { value: 'other',             label: 'Другое' },
 ]
 
-export function guiltyLabel(v)    { return GUILTY_PARTIES.find(x => x.value === v)?.label || v }
-export function typeLabel(v)      { return INCIDENT_TYPES.find(x => x.value === v)?.label || v }
-export function statusLabel(v)    { return STATUSES.find(x => x.value === v)?.label || v }
-export function priorityLabel(v)  { return PRIORITIES.find(x => x.value === v)?.label || v }
+export function guiltyLabel(v)         { return GUILTY_PARTIES.find(x => x.value === v)?.label || v }
+export function typeLabel(v)           { return INCIDENT_TYPES.find(x => x.value === v)?.label || v }
+export function statusLabel(v)         { return STATUSES.find(x => x.value === v)?.label || v }
+export function priorityLabel(v)       { return PRIORITIES.find(x => x.value === v)?.label || v }
+export function rootCauseLabel(v)      { return ROOT_CAUSES.find(x => x.value === v)?.label || v || '—' }
 export function employeeActionLabel(v) { return EMPLOYEE_ACTIONS.find(x => x.value === v)?.label || v || '—' }
 
 export function guiltyBadge(v) {
-  return { guard_department:'guard', company_employee:'employee', technical_fault:'tech', contractor:'contractor', unknown:'unknown' }[v] || 'unknown'
+  return {
+    guard_department: 'guard',
+    company_employee: 'employee',
+    force_majeure:    'unknown',
+  }[v] || 'unknown'
 }

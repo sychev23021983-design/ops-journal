@@ -87,7 +87,7 @@ class IncidentCreate(BaseModel):
     incident_type: str
     description: Optional[str] = None
     discovered_by: Optional[str] = None
-    shift_employee: Optional[str] = None
+    
     employee_actions: Optional[str] = None
     repair_request_filed: Optional[bool] = False
     object_left_before_fix: Optional[bool] = False
