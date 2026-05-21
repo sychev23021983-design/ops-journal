@@ -12,24 +12,29 @@ export default function ReportPage() {
   const [incidents, setIncidents] = useState([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    api.months().then(m => {
-      setMonths(m)
-      if (m.length > 0) setMonth(m[0])
-    }).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (!month) return
+  function loadData(m) {
     setLoading(true)
     Promise.all([
-      api.stats({ month }),
-      api.incidents.list({ month })
+      api.stats({ month: m }),
+      api.incidents.list({ month: m })
     ]).then(([s, i]) => {
       setStats(s)
       setIncidents(i)
-    }).finally(() => setLoading(false))
-  }, [month])
+    }).catch(console.error)
+    .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    // Сразу грузим текущий месяц, не ждём списка месяцев
+    loadData(month)
+    // Подгружаем список месяцев для dropdown
+    api.months().then(m => setMonths(m)).catch(() => {})
+  }, [])
+
+  function handleMonthChange(m) {
+    setMonth(m)
+    loadData(m)
+  }
 
   const guardCount = stats?.by_guilty?.find(x => x.guilty_party === 'guard_department')?.cnt || 0
   const guardPercent = stats?.total ? Math.round(guardCount / stats.total * 100) : 0
@@ -48,7 +53,8 @@ export default function ReportPage() {
           <div className="page-subtitle">Ежемесячный отчёт по инцидентам ОПС</div>
         </div>
         <div style={{display:'flex', gap:10}}>
-          <select value={month} onChange={e => setMonth(e.target.value)} style={{width:'auto'}}>
+          <select value={month} onChange={e => handleMonthChange(e.target.value)} style={{width:'auto'}}>
+            {months.length === 0 && <option value={month}>{month}</option>}
             {months.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
           <button className="btn btn-primary" onClick={handlePrint}>🖨 Печать / PDF</button>
@@ -60,7 +66,7 @@ export default function ReportPage() {
       ) : !stats ? (
         <div className="empty">
           <div className="icon">📄</div>
-          <div>Выберите период</div>
+          <div>Нет данных за период</div>
         </div>
       ) : (
         <div id="report-content">
