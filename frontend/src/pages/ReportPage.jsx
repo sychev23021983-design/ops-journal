@@ -130,7 +130,7 @@ export default function ReportPage() {
                     </div>
                     <div className="bar-track">
                       <div className="bar-fill" style={{
-                        width:`${pct}%`,
+                        width:pct+"%",
                         background: g.value==='guard_department' ? 'var(--danger)' :
                                     g.value==='company_employee' ? 'var(--warn)' : 'var(--accent)'
                       }} />
@@ -152,7 +152,7 @@ export default function ReportPage() {
                   <div className="bar-row" key={row.incident_type}>
                     <div className="bar-label">{typeLabel(row.incident_type)}</div>
                     <div className="bar-track">
-                      <div className="bar-fill" style={{width:`${Math.round(row.cnt/stats.total*100)}%`}} />
+                      <div className="bar-fill" style={{width:Math.round(row.cnt/stats.total*100)+"%"}} />
                     </div>
                     <div className="bar-count">{row.cnt}</div>
                   </div>
@@ -256,7 +256,7 @@ export default function ReportPage() {
                           )}
                         </td>
                         <td className="col-time" style={{fontFamily:'var(--mono)', fontSize:12}}>
-                          {inc.response_time_min != null ? `${inc.response_time_min} мин` : '—'}
+                          {inc.response_time_min != null ? inc.response_time_min + ' мин' : '—'}
                         </td>
                         <td className="col-fix" style={{fontSize:12}}>
                           {inc.root_cause && <div style={{marginBottom:4, color:'var(--text2)', fontSize:11}}>Причина: {inc.root_cause}</div>}
