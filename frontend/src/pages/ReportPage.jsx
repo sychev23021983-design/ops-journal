@@ -114,8 +114,9 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {/* 2. По виновной стороне */}
-          <div className="report-section">
+          {/* 2 и 3 в одну строку */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:24}}>
+          <div className="report-section" style={{marginBottom:0}}>
             <h3>2. Распределение по виновной стороне</h3>
             <div className="card">
               {GUILTY_PARTIES.map(g => {
@@ -141,9 +142,10 @@ export default function ReportPage() {
             </div>
           </div>
 
+          </div>
           {/* 3. По типам */}
           {stats.by_type?.length > 0 && (
-            <div className="report-section">
+            <div className="report-section" style={{marginBottom:0}}>
               <h3>3. Типы инцидентов</h3>
               <div className="card">
                 {stats.by_type.map(row => (
@@ -159,6 +161,8 @@ export default function ReportPage() {
             </div>
           )}
 
+          </div>
+          </div>
           {/* 4. Нарушения по договору */}
           {(noMasterIncidents.length > 0 || notGuardedIncidents.length > 0) && (
             <div className="report-section">
@@ -316,8 +320,8 @@ export default function ReportPage() {
       <style>{`
         @media print {
           .sidebar, .page-header .btn { display: none !important; }
-          .main { padding: 0 !important; }
-          .page { padding: 10px !important; }
+          .main { margin-left: 0 !important; padding: 0 !important; }
+          .page { padding: 6px 10px !important; }
           body, .card, td, th { color: black !important; background: white !important; }
           .card { border: 1px solid #ccc !important; }
           .badge { border: 1px solid #999 !important; color: black !important; background: #eee !important; }

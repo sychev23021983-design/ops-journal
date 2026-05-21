@@ -4,9 +4,11 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import IncidentsPage from './pages/IncidentsPage'
 import ReportPage from './pages/ReportPage'
+import SettingsPage from './pages/SettingsPage'
+import { getToken } from './api/client'
 
 function RequireAuth({ children }) {
-  const token = localStorage.getItem('ops_token')
+  const token = getToken()
   if (!token) return <Navigate to="/login" replace />
   return children
 }
@@ -22,9 +24,10 @@ export default function App() {
           </RequireAuth>
         }>
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="incidents" element={<IncidentsPage />} />
-          <Route path="report" element={<ReportPage />} />
+          <Route path="dashboard"  element={<DashboardPage />} />
+          <Route path="incidents"  element={<IncidentsPage />} />
+          <Route path="report"     element={<ReportPage />} />
+          <Route path="settings"   element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

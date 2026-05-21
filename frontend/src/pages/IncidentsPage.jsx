@@ -5,6 +5,7 @@ import {
   rootCauseLabel, guiltyBadge, employeeActionLabel,
   INCIDENT_TYPES, GUILTY_PARTIES, STATUSES
 } from '../api/constants'
+import { isAdmin } from '../api/client'
 import IncidentModal from '../components/IncidentModal'
 import dayjs from 'dayjs'
 
@@ -138,8 +139,7 @@ export default function IncidentsPage() {
                     <td>
                       <div style={{display:'flex', gap:4}}>
                         <button className="btn btn-ghost btn-sm" onClick={() => setModal(inc)}>✏️</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(inc.id)}
-                          disabled={deleting === inc.id}>🗑</button>
+                        {isAdmin() && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(inc.id)} disabled={deleting === inc.id}>🗑</button>}
                       </div>
                     </td>
                   </tr>
