@@ -16,7 +16,7 @@ export default function ReportPage() {
     setLoading(true)
     Promise.all([
       api.stats({ month: m }),
-      api.инцидентов.list({ month: m })
+      api.incidents.list({ month: m })
     ]).then(([s, i]) => {
       setStats(s)
       setIncidents(i)
@@ -37,7 +37,7 @@ export default function ReportPage() {
   const guardCount = stats?.by_guilty?.find(x => x.guilty_party === 'guard_department')?.cnt || 0
   const guardPercent = stats?.total ? Math.round(guardCount / stats.total * 100) : 0
   const monthLabel = dayjs(month + '-01').format('MMMM YYYY')
-  const noMasterIncidents = инцидентов.filter(i => i.repair_заявкаuest_filed && !i.master_arrived_at && i.status !== 'new')
+  const noMasterIncidents = incidents.filter(i => i.repair_заявкаuest_filed && !i.master_arrived_at && i.status !== 'new')
 
   return (
     <div className="page">
@@ -115,7 +115,7 @@ export default function ReportPage() {
                 </tr>
               </thead>
               <tbody>
-                {инцидентов.map(inc => (
+                {incidents.map(inc => (
                   <tr key={inc.id}>
                     <td style={{fontFamily:'var(--mono)',fontSize:11,whiteSpace:'nowrap'}}>{dayjs(inc.event_at).format('DD.MM.YY HH:mm')}</td>
                     <td style={{fontSize:12}}>{typeLabel(inc.incident_type)}</td>
@@ -136,7 +136,7 @@ export default function ReportPage() {
               Период: <strong>{monthLabel}</strong>. Всего: <strong>{stats.total}</strong> инцидентов.
               Вина охраны: <strong style={{color:'var(--danger)'}}>{guardCount} ({guardPercent}%)</strong>.
               {noMasterIncidents.length > 0 && <span> Мастер не прибыл: <strong>{noMasterIncidents.length}</strong> раз (нарушение договора).</span>}
-              {stats.avg_response_мин && <span> Среднее время реакции: <strong>{stats.avg_response_мин} мин</strong>.</span>}
+              {stats.avg_response_мин && <span> Среднее время реакции: <strong>{stats.avg_response_min} мин</strong>.</span>}
             </p>
           </div>
         </div>
