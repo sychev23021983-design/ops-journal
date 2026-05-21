@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { getRole } from '../api/client'
+import { getRole, api } from '../api/client'
+import { useState, useEffect } from 'react'
 
 const PAGE_TITLES = {
   '/dashboard': 'Дашборд',

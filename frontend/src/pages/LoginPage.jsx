@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 
@@ -6,7 +6,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [logoUrl, setLogoUrl]   = useState(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    api.settings.publicSettings().then(s => {
+      if (s.logo_url) setLogoUrl(s.logo_url)
+    }).catch(() => {})
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
