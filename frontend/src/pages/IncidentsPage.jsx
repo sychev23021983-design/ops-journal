@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import {
   guiltyLabel, typeLabel, statusLabel, priorityLabel,
-  guiltyBadge, INCIDENT_TYPES, GUILTY_PARTIES, STATUSES
+  guiltyBadge, employeeActionLabel,
+  INCIDENT_TYPES, GUILTY_PARTIES, STATUSES
 } from '../api/constants'
 import IncidentModal from '../components/IncidentModal'
 import dayjs from 'dayjs'
@@ -10,50 +11,31 @@ import dayjs from 'dayjs'
 export default function IncidentsPage() {
   const [incidents, setIncidents] = useState([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(null) // null | 'new' | incident object
+  const [modal, setModal] = useState(null)
   const [filters, setFilters] = useState({ month: '', guilty_party: '', incident_type: '', status: '' })
   const [months, setMonths] = useState([])
   const [deleting, setDeleting] = useState(null)
 
-  useEffect(() => {
-    api.months().then(setMonths).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [filters])
+  useEffect(() => { api.months().then(setMonths).catch(() => {}) }, [])
+  useEffect(() => { load() }, [filters])
 
   async function load() {
     setLoading(true)
     try {
       const params = Object.fromEntries(Object.entries(filters).filter(([,v]) => v))
-      const data = await api.incidents.list(params)
-      setIncidents(data)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+      setIncidents(await api.incidents.list(params))
+    } finally { setLoading(false) }
   }
 
-  function setFilter(k, v) {
-    setFilters(f => ({ ...f, [k]: v }))
-  }
+  function setFilter(k, v) { setFilters(f => ({ ...f, [k]: v })) }
 
   async function handleDelete(id) {
-    if (!window.confirm('Удалить инцидент? Действие необратимо.')) return
+    if (!window.confirm('Удалить инцидент?')) return
     setDeleting(id)
     try {
       await api.incidents.delete(id)
       setIncidents(prev => prev.filter(i => i.id !== id))
-    } finally {
-      setDeleting(null)
-    }
-  }
-
-  function handleSaved() {
-    setModal(null)
-    load()
+    } finally { setDeleting(null) }
   }
 
   return (
@@ -61,14 +43,16 @@ export default function IncidentsPage() {
       <div className="page-header">
         <div>
           <div className="page-title">Журнал инцидентов</div>
-          <div className="page-subtitle">Все зафиксированные неисправности и события</div>
+          <div className="page-subtitle">Все зафиксированные неисправности и события ОПС</div>
         </div>
         <button className="btn btn-primary" onClick={() => setModal('new')}>
           + Добавить инцидент
         </button>
       </div>
 
-      <div className="filters">
+      {/* Filters */}
+      <div className="filters-bar">
+        <span className="filter-label">Фильтр по:</span>
         <select value={filters.month} onChange={e => setFilter('month', e.target.value)}>
           <option value="">Все месяцы</option>
           {months.map(m => <option key={m} value={m}>{m}</option>)}
@@ -85,18 +69,26 @@ export default function IncidentsPage() {
           <option value="">Все статусы</option>
           {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+        {Object.values(filters).some(Boolean) && (
+          <button className="btn btn-ghost btn-sm"
+            onClick={() => setFilters({ month:'', guilty_party:'', incident_type:'', status:'' })}>
+            × Сбросить
+          </button>
+        )}
+        <span style={{marginLeft:'auto', fontSize:12, color:'var(--text2)'}}>
+          Найдено: {incidents.length}
+        </span>
       </div>
 
-      <div className="card">
+      {/* Table */}
+      <div className="card" style={{padding:0}}>
         {loading ? (
           <div className="empty"><div>Загрузка...</div></div>
         ) : incidents.length === 0 ? (
           <div className="empty">
             <div className="icon">📭</div>
-            <div>Инцидентов не найдено</div>
-            <div style={{fontSize:12, marginTop:6, color:'var(--text2)'}}>
-              Измените фильтры или добавьте первый инцидент
-            </div>
+            <div className="title">Инцидентов не найдено</div>
+            <div style={{fontSize:12, marginTop:4}}>Измените фильтры или добавьте первый инцидент</div>
           </div>
         ) : (
           <div className="table-wrap">
@@ -105,7 +97,9 @@ export default function IncidentsPage() {
                 <tr>
                   <th>#</th>
                   <th>Дата события</th>
-                  <th>Тип</th>
+                  <th>Тип инцидента</th>
+                  <th>Описание</th>
+                  <th>Действия сотрудника</th>
                   <th>Виновная сторона</th>
                   <th>Реакция (мин)</th>
                   <th>Статус</th>
@@ -116,43 +110,42 @@ export default function IncidentsPage() {
               <tbody>
                 {incidents.map(inc => (
                   <tr key={inc.id}>
-                    <td style={{fontFamily:'var(--mono)', color:'var(--text2)', fontSize:11}}>#{inc.id}</td>
+                    <td style={{color:'var(--text2)', fontSize:12}}>#{inc.id}</td>
                     <td style={{fontFamily:'var(--mono)', fontSize:12, whiteSpace:'nowrap'}}>
-                      {dayjs(inc.event_at).format('DD.MM.YY HH:mm')}
+                      {dayjs(inc.event_at).format('DD.MM.YY')}<br/>
+                      <span style={{color:'var(--text2)'}}>{dayjs(inc.event_at).format('HH:mm')}</span>
                     </td>
-                    <td style={{maxWidth:180}}>
-                      <div style={{fontSize:13}}>{typeLabel(inc.incident_type)}</div>
-                      {inc.description && (
-                        <div style={{fontSize:11, color:'var(--text2)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:160}}>
-                          {inc.description}
-                        </div>
-                      )}
+                    <td style={{fontWeight:500}}>{typeLabel(inc.incident_type)}</td>
+                    <td style={{maxWidth:200, color:'var(--text2)', fontSize:12}}>
+                      {inc.description
+                        ? inc.description.length > 80
+                          ? inc.description.slice(0,80) + '…'
+                          : inc.description
+                        : '—'}
+                    </td>
+                    <td style={{fontSize:12}}>
+                      {employeeActionLabel(inc.employee_actions)}
+                      {inc.repair_request_filed
+                        ? <div><span className="flag-ok">заявка подана</span></div>
+                        : <div><span className="flag-warn">заявка не подана</span></div>}
+                      {inc.object_left_before_fix && <div><span className="flag-warn">ушёл до устранения</span></div>}
                     </td>
                     <td>
                       <span className={`badge badge-${guiltyBadge(inc.guilty_party)}`}>
                         {guiltyLabel(inc.guilty_party)}
                       </span>
+                      {!inc.object_under_guard && <div><span className="flag-warn">не под охраной</span></div>}
                     </td>
                     <td style={{fontFamily:'var(--mono)', textAlign:'center'}}>
                       {inc.response_time_min ?? '—'}
                     </td>
+                    <td><span className={`badge badge-${inc.status}`}>{statusLabel(inc.status)}</span></td>
+                    <td><span className={`badge badge-${inc.priority}`}>{priorityLabel(inc.priority)}</span></td>
                     <td>
-                      <span className={`badge badge-${inc.status}`}>
-                        {statusLabel(inc.status)}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge badge-${inc.priority}`}>
-                        {priorityLabel(inc.priority)}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{display:'flex', gap:6}}>
-                        <button className="btn btn-ghost btn-sm"
-                          onClick={() => setModal(inc)}>✏️</button>
-                        <button className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(inc.id)}
-                          disabled={deleting === inc.id}>🗑</button>
+                      <div style={{display:'flex', gap:4}}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setModal(inc)} title="Редактировать">✏️</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(inc.id)}
+                          disabled={deleting === inc.id} title="Удалить">🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -167,7 +160,7 @@ export default function IncidentsPage() {
         <IncidentModal
           incident={modal === 'new' ? null : modal}
           onClose={() => setModal(null)}
-          onSaved={handleSaved}
+          onSaved={() => { setModal(null); load() }}
         />
       )}
     </div>

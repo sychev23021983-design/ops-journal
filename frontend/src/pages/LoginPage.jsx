@@ -26,11 +26,16 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-box">
-        <h1>ОПС Журнал</h1>
-        <p>Журнал инцидентов охранной сигнализации</p>
+        <div className="login-logo">
+          <div className="logo-icon">🛡</div>
+          <div>
+            <h1>ОПС Журнал</h1>
+            <p>Журнал инцидентов охранной сигнализации</p>
+          </div>
+        </div>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div className="field" style={{marginBottom: 16}}>
+          <div className="field" style={{marginBottom:14}}>
             <label>Пароль</label>
             <input
               type="password"
@@ -40,10 +45,13 @@ export default function LoginPage() {
               autoFocus
             />
           </div>
-          <button className="btn btn-primary" style={{width:'100%'}} disabled={loading}>
-            {loading ? 'Вход...' : 'Войти'}
+          <button className="btn btn-primary" style={{width:'100%', justifyContent:'center', padding:'9px 16px'}} disabled={loading}>
+            {loading ? 'Вход...' : 'Войти в систему'}
           </button>
         </form>
+        <div style={{marginTop:20, padding:'12px 14px', background:'var(--bg)', borderRadius:'var(--radius)', fontSize:12, color:'var(--text2)'}}>
+          ООО «ИТЦ-М» · Система учёта инцидентов ОПС · Договор № 562/05
+        </div>
       </div>
     </div>
   )

@@ -32,37 +32,21 @@ export const PRIORITIES = [
   { value: 'low',      label: 'Низкий' },
 ]
 
-export function guiltyLabel(v) {
-  return GUILTY_PARTIES.find(x => x.value === v)?.label || v
-}
+export const EMPLOYEE_ACTIONS = [
+  { value: 'called_duty',        label: 'Позвонил дежурному' },
+  { value: 'filed_repair',       label: 'Подал заявку на ремонт' },
+  { value: 'waited_for_master',  label: 'Дождался мастера' },
+  { value: 'left_without_fix',   label: 'Ушёл без постановки' },
+  { value: 'no_action',          label: 'Не предпринял действий' },
+  { value: 'other',              label: 'Другое' },
+]
 
-export function typeLabel(v) {
-  return INCIDENT_TYPES.find(x => x.value === v)?.label || v
-}
-
-export function statusLabel(v) {
-  return STATUSES.find(x => x.value === v)?.label || v
-}
-
-export function priorityLabel(v) {
-  return PRIORITIES.find(x => x.value === v)?.label || v
-}
+export function guiltyLabel(v)    { return GUILTY_PARTIES.find(x => x.value === v)?.label || v }
+export function typeLabel(v)      { return INCIDENT_TYPES.find(x => x.value === v)?.label || v }
+export function statusLabel(v)    { return STATUSES.find(x => x.value === v)?.label || v }
+export function priorityLabel(v)  { return PRIORITIES.find(x => x.value === v)?.label || v }
+export function employeeActionLabel(v) { return EMPLOYEE_ACTIONS.find(x => x.value === v)?.label || v || '—' }
 
 export function guiltyBadge(v) {
-  const map = {
-    guard_department: 'guard',
-    company_employee: 'employee',
-    technical_fault:  'tech',
-    contractor:       'contractor',
-    unknown:          'unknown',
-  }
-  return map[v] || 'unknown'
-}
-
-export function statusBadge(v) {
-  return v || 'unknown'
-}
-
-export function priorityBadge(v) {
-  return v || 'medium'
+  return { guard_department:'guard', company_employee:'employee', technical_fault:'tech', contractor:'contractor', unknown:'unknown' }[v] || 'unknown'
 }
