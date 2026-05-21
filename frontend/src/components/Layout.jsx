@@ -20,7 +20,7 @@ export default function Layout() {
   const [logoSize, setLogoSize]     = useState(32)
 
   useEffect(() => {
-    api.settings.publicНастройки().then(s => {
+    api.settings.publicSettings().then(s => {
       if (s.logo_url)    setLogoUrl(s.logo_url)
       if (s.favicon_url) setFaviconUrl(s.favicon_url)
       if (s.logo_size)   setLogoSize(Number(s.logo_size))
