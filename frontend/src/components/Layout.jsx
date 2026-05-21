@@ -47,7 +47,7 @@ export default function Layout() {
         <div className="sidebar-logo">
           {logoUrl
             ? <img src={logoUrl} alt="logo" style={{width:logoSize, height:logoSize, objectFit:'contain', borderRadius:4, flexShrink:0}} />
-            : <div className="logo-icon">shield</div>
+            : <div className="logo-icon">🛡</div>
           }
           <div style={{flex:1, minWidth:0}}>
             <h1>OPS Journal</h1>
@@ -57,19 +57,19 @@ export default function Layout() {
         <nav>
           <div className="sidebar-section-title">Navigation</div>
           <NavLink to="/dashboard" className={({isActive}) => 'nav-item' + (isActive ? ' active' : '')}>
-            <span className="icon">dashboard</span><span>Dashboard</span>
+            📊 Dashboard
           </NavLink>
           <NavLink to="/incidents" className={({isActive}) => 'nav-item' + (isActive ? ' active' : '')}>
-            <span className="icon">list</span><span>Incident log</span>
+            📋 Incident log
           </NavLink>
           <NavLink to="/report" className={({isActive}) => 'nav-item' + (isActive ? ' active' : '')}>
-            <span className="icon">doc</span><span>Report</span>
+            📄 Report
           </NavLink>
           {isAdmin && (
             <>
               <div className="sidebar-section-title" style={{marginTop:8}}>Admin</div>
               <NavLink to="/settings" className={({isActive}) => 'nav-item' + (isActive ? ' active' : '')}>
-                <span className="icon">gear</span><span>Settings</span>
+                ⚙️ Settings
               </NavLink>
             </>
           )}
