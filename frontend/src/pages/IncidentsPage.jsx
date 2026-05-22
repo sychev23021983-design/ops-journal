@@ -143,9 +143,16 @@ export default function IncidentsPage() {
                       {(inc.called_electrician_at || inc.called_duty_at)
                         ? <div><span className="flag-ok">Заявка</span></div>
                         : <div><span className="flag-warn">Без заявки</span></div>}
-                      {inc.object_left_before_fix ? <div><span className="flag-warn">ушёл до устранения ⚠️</span></div> : null}
-                      {!inc.object_under_guard ? <div><span className="flag-warn">не под охраной</span></div> : null}
-                      {inc.additional_investigation ? <div><span className="flag-warn">доп. расследование</span></div> : null}
+                      {inc.object_left_before_fix
+                        ? <div><span className="flag-warn">ушёл до устранения ⚠️</span></div> : null}
+                      {/* Метка "под охраной" только для инцидентов, не для ТО/ремонт */}
+                      {!(['planned_to','unplanned_to','repair'].includes(inc.incident_type)) && (
+                        inc.object_under_guard
+                          ? <div><span className="flag-ok">под охраной</span></div>
+                          : <div><span className="flag-warn">не под охраной</span></div>
+                      )}
+                      {inc.additional_investigation
+                        ? <div><span className="flag-warn">доп. расследование</span></div> : null}
                     </td>
                     <td style={{fontFamily:'var(--mono)', textAlign:'center', fontSize:12}}>
                       {inc.response_time_min != null ? `${inc.response_time_min} мин` : '—'}
@@ -196,4 +203,5 @@ export default function IncidentsPage() {
     </div>
   )
 }
+
 
