@@ -487,18 +487,18 @@ textarea { resize: vertical; min-height: 76px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--sidebar-bg);
-  background-image: radial-gradient(ellipse at 60% 40%, rgba(30,136,229,0.08) 0%, transparent 60%);
+  background: var(--bg2);
+  background-image: radial-gradient(ellipse at 60% 40%, rgba(30,136,229,0.06) 0%, transparent 60%);
 }
 
 .login-box {
-  background: var(--bg2);
+  background: var(--sidebar-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 36px 40px;
   width: 100%;
   max-width: 380px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
 }
 
 .login-logo {
@@ -516,8 +516,8 @@ textarea { resize: vertical; min-height: 76px; }
   font-size: 20px;
 }
 
-.login-logo h1 { font-size: 16px; font-weight: 700; color: var(--text); }
-.login-logo p  { font-size: 12px; color: var(--text2); }
+.login-logo h1 { font-size: 16px; font-weight: 700; color: var(--sidebar-text, #f1f5f9); }
+.login-logo p  { font-size: 12px; color: var(--sidebar-text2, #94a3b8); }
 
 .error-msg {
   background: var(--danger-bg);
@@ -670,3 +670,4 @@ textarea { resize: vertical; min-height: 76px; }
   width: 100%;
   overflow-x: auto;
 }
+
