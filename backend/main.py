@@ -166,6 +166,7 @@ class EmployeeUpdate(EmployeeCreate):
 class SettingsUpdate(BaseModel):
     viewer_password: Optional[str] = None
     logo_size: Optional[str] = None
+    font_family: Optional[str] = None
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
@@ -260,10 +261,12 @@ def get_public_settings():
         logo    = conn.execute("SELECT value FROM settings WHERE key='logo_url'").fetchone()
         favicon = conn.execute("SELECT value FROM settings WHERE key='favicon_url'").fetchone()
         size    = conn.execute("SELECT value FROM settings WHERE key='logo_size'").fetchone()
+        font    = conn.execute("SELECT value FROM settings WHERE key='font_family'").fetchone()
         return {
             "logo_url":    logo["value"]    if logo    else None,
             "favicon_url": favicon["value"] if favicon else None,
             "logo_size":   size["value"]    if size    else "32",
+            "font_family": font["value"]    if font    else "Roboto",
         }
     finally:
         conn.close()
@@ -605,3 +608,4 @@ def get_months(role: str = Depends(get_role)):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
