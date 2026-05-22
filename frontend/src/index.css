@@ -625,3 +625,48 @@ textarea { resize: vertical; min-height: 76px; }
   .page { padding: 14px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }
+
+
+/* ── Adaptive report table ── */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card .table-wrap table,
+.card > table {
+  width: 100%;
+  min-width: 900px;   /* горизонтальный скролл если не влезает */
+}
+
+/* Отчёт — таблица растягивается на всю ширину */
+.report-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-table-wrap table {
+  width: 100%;
+  table-layout: fixed;
+  min-width: 860px;
+}
+
+/* Убираем пустое место справа в карточках */
+.card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.page {
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+/* Страница отчёта — таблица на всю ширину без overflow */
+.report-page-table {
+  width: 100%;
+  overflow-x: auto;
+}
