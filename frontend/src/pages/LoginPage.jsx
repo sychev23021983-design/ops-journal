@@ -7,11 +7,13 @@ export default function LoginPage() {
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [logoUrl, setLogoUrl]   = useState(null)
+  const [logoSize, setLogoSize] = useState(56)
   const navigate = useNavigate()
 
   useEffect(() => {
     api.settings.publicSettings().then(s => {
-      if (s.logo_url) setLogoUrl(s.logo_url)
+      if (s.logo_url)  setLogoUrl(s.logo_url)
+      if (s.logo_size) setLogoSize(Number(s.logo_size))
     }).catch(() => {})
   }, [])
 
@@ -35,7 +37,11 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-box">
         <div className="login-logo">
-          <div className="logo-icon">🛡</div>
+          {logoUrl
+            ? <img src={logoUrl} alt="logo"
+                style={{width: logoSize, height: logoSize, objectFit:'contain', borderRadius: 8}} />
+            : <div className="logo-icon">🛡</div>
+          }
           <div>
             <h1>ОПС Журнал</h1>
             <p>Журнал инцидентов охранной сигнализации</p>
