@@ -128,27 +128,27 @@ export default function ReportPage() {
           <div className="card report-page-table" style={{padding:0, marginBottom:20}}>
             <table style={{width:'100%', tableLayout:'fixed'}}>
               <colgroup>
+                <col style={{width:'90px'}} />
                 <col style={{width:'110px'}} />
-                <col style={{width:'140px'}} />
-                <col style={{width:'auto'}} />   {/* Описание — растягивается */}
-                <col style={{width:'130px'}} />
-                <col style={{width:'auto'}} />   {/* Реакция охраны — растягивается */}
-                <col style={{width:'60px'}} />
-                <col style={{width:'auto'}} />   {/* Итог устранения — растягивается */}
-                <col style={{width:'130px'}} />
-                <col style={{width:'150px'}} />
+                <col style={{width:'18%'}} />
+                <col style={{width:'13%'}} />
+                <col style={{width:'18%'}} />
+                <col style={{width:'48px'}} />
+                <col style={{width:'13%'}} />
+                <col style={{width:'110px'}} />
+                <col style={{width:'11%'}} />
               </colgroup>
               <thead>
                 <tr>
-                  <th>Дата</th>
-                  <th>Тип события</th>
+                  <th style={{whiteSpace:'nowrap'}}>Дата</th>
+                  <th>Тип<br/>события</th>
                   <th>Описание</th>
-                  <th>Сотрудник / действия</th>
-                  <th>Реакция охраны МВД</th>
-                  <th>Мин.</th>
-                  <th>Итог / Устранение</th>
-                  <th>Виновная сторона</th>
-                  <th>Основание (договор)</th>
+                  <th>Сотрудник /<br/>действия</th>
+                  <th>Реакция<br/>охраны МВД</th>
+                  <th style={{whiteSpace:'nowrap'}}>Мин.</th>
+                  <th>Итог /<br/>Устранение</th>
+                  <th>Виновная<br/>сторона</th>
+                  <th>Основание<br/>(договор)</th>
                 </tr>
               </thead>
               <tbody>
@@ -175,10 +175,12 @@ export default function ReportPage() {
                       {inc.object_left_before_fix
                         ? <div><span className="flag-warn" style={{fontSize:10}}>ушёл до устранения ⚠️</span></div>
                         : null}
-                      {/* Объект под охраной */}
-                      {inc.object_under_guard === 0 || inc.object_under_guard === false
-                        ? <div><span className="flag-warn" style={{fontSize:10}}>не под охраной</span></div>
-                        : <div><span className="flag-ok" style={{fontSize:10}}>под охраной</span></div>}
+                      {/* Объект под охраной — только для инцидентов */}
+                      {!(['planned_to','unplanned_to','repair'].includes(inc.incident_type)) && (
+                        inc.object_under_guard === 0 || inc.object_under_guard === false
+                          ? <div><span className="flag-warn" style={{fontSize:10}}>не под охраной</span></div>
+                          : <div><span className="flag-ok" style={{fontSize:10}}>под охраной</span></div>
+                      )}
                     </td>
                     <td style={{fontSize:12}}>
                       {inc.guard_response_type && (
@@ -255,4 +257,5 @@ export default function ReportPage() {
     </div>
   )
 }
+
 
