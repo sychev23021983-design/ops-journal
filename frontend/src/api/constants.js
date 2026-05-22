@@ -75,10 +75,10 @@ export function getRootCauses(incident_type) {
 // ── Виновная сторона ──────────────────────────────────────────────────────────
 
 export const GUILTY_PARTIES = [
-  { value: 'guard_department', label: 'Департамент охраны МВД' },
-  { value: 'company_employee', label: 'Сотрудник компании' },
-  { value: 'technical',        label: 'Техническая неисправность (общая)' },
-  { value: 'force_majeure',    label: 'Непреодолимая сила' },
+  { value: 'guard_department', label: 'Департамент МВД' },
+  { value: 'company_employee', label: 'Сотрудник' },
+  { value: 'technical',        label: 'Техн. неисправность' },
+  { value: 'force_majeure',    label: 'Форс-мажор' },
   { value: 'unknown',          label: 'Не определена' },
 ]
 
@@ -185,3 +185,4 @@ export function isMaintenance(type) {
   const t = INCIDENT_TYPES.find(x => x.value === type)
   return t?.category === 'maintenance'
 }
+
