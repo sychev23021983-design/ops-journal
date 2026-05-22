@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import {
-  guiltyLabel, typeLabel, statusLabel, priorityLabel,
-  rootCauseLabel, guiltyBadge, employeeActionLabel,
-  INCIDENT_TYPES, GUILTY_PARTIES, STATUSES
+  guiltyLabel, typeLabel, statusLabel, rootCauseLabel, guiltyBadge,
+  outcomeLabel, INCIDENT_TYPES, GUILTY_PARTIES, STATUSES
 } from '../api/constants'
 import { isAdmin } from '../api/client'
 import IncidentModal from '../components/IncidentModal'
@@ -11,43 +10,64 @@ import dayjs from 'dayjs'
 
 export default function IncidentsPage() {
   const [incidents, setIncidents] = useState([])
+  const [allIncidents, setAllIncidents] = useState([])
+  const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [filters, setFilters] = useState({ month: '', guilty_party: '', incident_type: '', status: '' })
   const [months, setMonths] = useState([])
   const [deleting, setDeleting] = useState(null)
+  const [statusUpdating, setStatusUpdating] = useState(null)
 
-  useEffect(() => { api.months().then(setMonths).catch(() => {}) }, [])
+  useEffect(() => {
+    api.months().then(setMonths).catch(() => {})
+    api.employees.list().then(setEmployees).catch(() => {})
+    api.incidents.list().then(setAllIncidents).catch(() => {})
+  }, [])
+
   useEffect(() => { load() }, [filters])
 
   async function load() {
     setLoading(true)
     try {
       const params = Object.fromEntries(Object.entries(filters).filter(([,v]) => v))
-      setIncidents(await api.incidents.list(params))
+      const data = await api.incidents.list(params)
+      setIncidents(data)
+      if (!Object.values(filters).some(Boolean)) setAllIncidents(data)
     } finally { setLoading(false) }
   }
 
   function setFilter(k, v) { setFilters(f => ({ ...f, [k]: v })) }
 
   async function handleDelete(id) {
-    if (!window.confirm('Удалить инцидент?')) return
+    if (!window.confirm('Удалить запись?')) return
     setDeleting(id)
     try {
       await api.incidents.delete(id)
       setIncidents(prev => prev.filter(i => i.id !== id))
+      setAllIncidents(prev => prev.filter(i => i.id !== id))
     } finally { setDeleting(null) }
+  }
+
+  async function handleStatusChange(id, status) {
+    setStatusUpdating(id)
+    try {
+      await api.incidents.patchStatus(id, status)
+      setIncidents(prev => prev.map(i => i.id === id ? {...i, status} : i))
+    } catch (e) {
+      alert('Ошибка: ' + e.message)
+    } finally { setStatusUpdating(null) }
   }
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <div className="page-title">Журнал инцидентов</div>
-          <div className="page-subtitle">Все зафиксированные неисправности и события ОПС</div>
+          <div className="page-title">Журнал событий ОПС</div>
+          <div className="page-subtitle">Инциденты, ТО и ремонты охранной сигнализации</div>
         </div>
         <button className="btn btn-primary" onClick={() => setModal('new')}>
-          + Добавить инцидент
+          + Добавить запись
         </button>
       </div>
 
@@ -84,8 +104,8 @@ export default function IncidentsPage() {
         ) : incidents.length === 0 ? (
           <div className="empty">
             <div className="icon">📭</div>
-            <div className="title">Инцидентов не найдено</div>
-            <div style={{fontSize:12, marginTop:4}}>Измените фильтры или добавьте первый инцидент</div>
+            <div className="title">Записей не найдено</div>
+            <div style={{fontSize:12, marginTop:4}}>Измените фильтры или добавьте первую запись</div>
           </div>
         ) : (
           <div className="table-wrap">
@@ -93,13 +113,12 @@ export default function IncidentsPage() {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Дата события</th>
-                  <th>Тип инцидента</th>
-                  <th>Описание</th>
-                  <th>Причина</th>
-                  <th>Действия сотрудника</th>
-                  <th>Виновная сторона</th>
+                  <th>Дата</th>
+                  <th>Тип события</th>
+                  <th>Кто обнаружил</th>
+                  <th>Причина / Итог</th>
                   <th>Реакция (мин)</th>
+                  <th>Виновная сторона</th>
                   <th>Статус</th>
                   <th></th>
                 </tr>
@@ -113,33 +132,44 @@ export default function IncidentsPage() {
                       <span style={{color:'var(--text2)'}}>{dayjs(inc.event_at).format('HH:mm')}</span>
                     </td>
                     <td style={{fontWeight:500}}>{typeLabel(inc.incident_type)}</td>
-                    <td style={{maxWidth:180, color:'var(--text2)', fontSize:12}}>
-                      {inc.description
-                        ? inc.description.length > 70 ? inc.description.slice(0,70)+'…' : inc.description
-                        : '—'}
-                    </td>
-                    <td style={{fontSize:12}}>{rootCauseLabel(inc.root_cause)}</td>
                     <td style={{fontSize:12}}>
-                      {employeeActionLabel(inc.employee_actions)}
-                      {inc.repair_request_filed
-                        ? <div><span className="flag-ok">заявка подана</span></div>
-                        : <div><span className="flag-warn">заявка не подана</span></div>}
-                      {inc.object_left_before_fix && <div><span className="flag-warn">ушёл до устранения</span></div>}
+                      {inc.discovered_by || '—'}
+                      {inc.notified_person && <div style={{color:'var(--text2)', fontSize:11}}>→ {inc.notified_person}</div>}
+                    </td>
+                    <td style={{fontSize:12}}>
+                      {rootCauseLabel(inc.root_cause)}
+                      {inc.outcome && <div style={{color:'var(--text2)', fontSize:11}}>{outcomeLabel(inc.outcome)}</div>}
+                      {inc.object_left_before_fix ? <div><span className="flag-warn">ушёл до устранения</span></div> : null}
+                      {!inc.object_under_guard ? <div><span className="flag-warn">не под охраной</span></div> : null}
+                      {inc.additional_investigation ? <div><span className="flag-warn">доп. расследование</span></div> : null}
+                    </td>
+                    <td style={{fontFamily:'var(--mono)', textAlign:'center', fontSize:12}}>
+                      {inc.response_time_min != null ? `${inc.response_time_min} мин` : '—'}
                     </td>
                     <td>
-                      <span className={`badge badge-${guiltyBadge(inc.guilty_party)}`}>
+                      <span className={`badge badge-${guiltyBadge(inc.guilty_party)}`} style={{fontSize:11}}>
                         {guiltyLabel(inc.guilty_party)}
                       </span>
-                      {!inc.object_under_guard && <div><span className="flag-warn">не под охраной</span></div>}
                     </td>
-                    <td style={{fontFamily:'var(--mono)', textAlign:'center'}}>
-                      {inc.response_time_min ?? '—'}
+                    <td>
+                      {/* Inline status change */}
+                      <select
+                        value={inc.status}
+                        disabled={statusUpdating === inc.id}
+                        onChange={e => handleStatusChange(inc.id, e.target.value)}
+                        className={`status-select status-select-${inc.status}`}
+                        style={{fontSize:11, padding:'2px 4px', borderRadius:'var(--radius)', border:'1px solid var(--border)', background:'var(--bg)', cursor:'pointer'}}>
+                        {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
                     </td>
-                    <td><span className={`badge badge-${inc.status}`}>{statusLabel(inc.status)}</span></td>
                     <td>
                       <div style={{display:'flex', gap:4}}>
                         <button className="btn btn-ghost btn-sm" onClick={() => setModal(inc)}>✏️</button>
-                        {isAdmin() && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(inc.id)} disabled={deleting === inc.id}>🗑</button>}
+                        {isAdmin() && (
+                          <button className="btn btn-danger btn-sm"
+                            onClick={() => handleDelete(inc.id)}
+                            disabled={deleting === inc.id}>🗑</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -153,8 +183,10 @@ export default function IncidentsPage() {
       {modal && (
         <IncidentModal
           incident={modal === 'new' ? null : modal}
+          employees={employees}
+          incidents={allIncidents}
           onClose={() => setModal(null)}
-          onSaved={() => { setModal(null); load() }}
+          onSaved={() => { setModal(null); load(); api.incidents.list().then(setAllIncidents).catch(()=>{}) }}
         />
       )}
     </div>
