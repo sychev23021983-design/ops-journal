@@ -125,7 +125,7 @@ export default function ReportPage() {
           </div>
 
           {/* Основная таблица */}
-          <div className="card" style={{padding:0, marginBottom:20, overflowX:'auto'}}>
+          <div className="card report-page-table" style={{padding:0, marginBottom:20}}>
             <table style={{width:'100%', tableLayout:'fixed'}}>
               <colgroup>
                 <col style={{width:'110px'}} />
