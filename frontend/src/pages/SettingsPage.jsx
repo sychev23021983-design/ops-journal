@@ -2,6 +2,23 @@ import { useState, useEffect, useRef } from 'react'
 import { api, isAdmin } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 
+const FONTS = [
+  { value: 'Roboto',      label: 'Roboto',       sample: 'Современный, читаемый' },
+  { value: 'Inter',       label: 'Inter',        sample: 'Чёткий, технический' },
+  { value: 'Open Sans',   label: 'Open Sans',    sample: 'Нейтральный, офисный' },
+  { value: 'Lato',        label: 'Lato',         sample: 'Мягкий, деловой' },
+  { value: 'Montserrat',  label: 'Montserrat',   sample: 'Геометричный, строгий' },
+  { value: 'Nunito',      label: 'Nunito',       sample: 'Округлый, дружелюбный' },
+  { value: 'Raleway',     label: 'Raleway',      sample: 'Элегантный, тонкий' },
+  { value: 'Poppins',     label: 'Poppins',      sample: 'Современный, заголовочный' },
+  { value: 'Merriweather',label: 'Merriweather', sample: 'Серифный, документальный' },
+  { value: 'PT Sans',     label: 'PT Sans',      sample: 'Кириллический, официальный' },
+]
+
+function applyFont(fontName) {
+  document.body.style.fontFamily = `'${fontName}', -apple-system, BlinkMacSystemFont, sans-serif`
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate()
   const [viewerPassword, setViewerPassword] = useState('')
@@ -11,6 +28,7 @@ export default function SettingsPage() {
   const [faviconUrl, setFaviconUrl] = useState(null)
   const [logoSize, setLogoSize]   = useState(32)
   const [uploading, setUploading] = useState('')
+  const [currentFont, setCurrentFont] = useState('Roboto')
 
   // Employees
   const [employees, setEmployees]   = useState([])
@@ -32,17 +50,18 @@ export default function SettingsPage() {
       if (s.logo_url)    setLogoUrl(s.logo_url)
       if (s.favicon_url) setFaviconUrl(s.favicon_url)
       if (s.logo_size)   setLogoSize(Number(s.logo_size))
+      if (s.font_family) {
+        setCurrentFont(s.font_family)
+        applyFont(s.font_family)
+      }
     }).catch(() => {})
     loadEmployees()
   }, [])
 
   async function loadEmployees() {
     setEmpLoading(true)
-    try {
-      const data = await api.employees.list(true)
-      setEmployees(data)
-    } catch {}
-    finally { setEmpLoading(false) }
+    try { setEmployees(await api.employees.list(true)) }
+    catch {} finally { setEmpLoading(false) }
   }
 
   async function savePassword(e) {
@@ -79,8 +98,15 @@ export default function SettingsPage() {
     finally { setUploading('') }
   }
 
-  // ── Employees ──────────────────────────────────────────────────────────────
+  async function handleFontChange(fontName) {
+    setCurrentFont(fontName)
+    applyFont(fontName)
+    try {
+      await api.settings.update({ font_family: fontName })
+    } catch {}
+  }
 
+  // ── Employees ──────────────────────────────────────────────────────────────
   function startEdit(emp) {
     setEditingEmp(emp.id)
     setEmpForm({ full_name: emp.full_name, position: emp.position||'', phone: emp.phone||'' })
@@ -115,16 +141,10 @@ export default function SettingsPage() {
   }
 
   // ── Backup ────────────────────────────────────────────────────────────────
-
   function handleExport() {
     const token = localStorage.getItem('ops_token')
-    const url   = api.backup.exportUrl()
-    // Use fetch to trigger download with auth header
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => {
-        if (!res.ok) throw new Error('Ошибка экспорта')
-        return res.blob()
-      })
+    fetch(api.backup.exportUrl(), { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => { if (!res.ok) throw new Error('Ошибка'); return res.blob() })
       .then(blob => {
         const a = document.createElement('a')
         a.href = URL.createObjectURL(blob)
@@ -143,19 +163,12 @@ export default function SettingsPage() {
       const result = await api.backup.import(file)
       setBackupMsg(`ok_Восстановлено: ${result.incidents} инцидентов, ${result.employees} сотрудников`)
       await loadEmployees()
-    } catch (err) {
-      setBackupMsg('err_' + err.message)
-    } finally {
-      setImporting(false)
-      importRef.current.value = ''
-    }
+    } catch (err) { setBackupMsg('err_' + err.message) }
+    finally { setImporting(false); importRef.current.value = '' }
   }
 
-  const msgOk  = msg.startsWith('ok_')
-  const msgTxt = msg.slice(4)
-  const bkOk   = backupMsg.startsWith('ok_')
-  const bkTxt  = backupMsg.slice(4)
-
+  const msgOk = msg.startsWith('ok_');  const msgTxt = msg.slice(4)
+  const bkOk  = backupMsg.startsWith('ok_'); const bkTxt = backupMsg.slice(4)
   const activeEmployees   = employees.filter(e => e.is_active)
   const inactiveEmployees = employees.filter(e => !e.is_active)
 
@@ -169,16 +182,15 @@ export default function SettingsPage() {
       </div>
 
       {msg && (
-        <div style={{
-          padding:'10px 14px', borderRadius:'var(--radius)', fontSize:13, marginBottom:16,
+        <div style={{padding:'10px 14px', borderRadius:'var(--radius)', fontSize:13, marginBottom:16,
           background: msgOk ? 'var(--success-bg)' : 'var(--danger-bg)',
           border: '1px solid ' + (msgOk ? '#86efac' : '#fca5a5'),
-          color: msgOk ? 'var(--success)' : 'var(--danger)',
-        }}>{msgOk ? '✓ ' : '✗ '}{msgTxt}</div>
+          color: msgOk ? 'var(--success)' : 'var(--danger)'}}>
+          {msgOk ? '✓ ' : '✗ '}{msgTxt}
+        </div>
       )}
 
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16}}>
-
         {/* Access */}
         <div className="card">
           <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Доступ для просмотра</div>
@@ -189,8 +201,7 @@ export default function SettingsPage() {
             <div className="field" style={{marginBottom:12}}>
               <label>Новый пароль просмотра</label>
               <input type="password" value={viewerPassword}
-                onChange={e => setViewerPassword(e.target.value)}
-                placeholder="Введите новый пароль" />
+                onChange={e => setViewerPassword(e.target.value)} placeholder="Введите новый пароль" />
             </div>
             <button className="btn btn-primary" disabled={saving || !viewerPassword}>
               {saving ? 'Сохранение...' : 'Сохранить пароль'}
@@ -228,14 +239,63 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Font picker */}
+      <div className="card" style={{marginBottom:16}}>
+        <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Шрифт интерфейса</div>
+        <div style={{fontSize:12, color:'var(--text2)', marginBottom:16}}>
+          Выбранный шрифт применяется ко всему интерфейсу и сохраняется в настройках.
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:10}}>
+          {FONTS.map(font => (
+            <div key={font.value}
+              onClick={() => handleFontChange(font.value)}
+              style={{
+                padding:'12px 14px',
+                borderRadius:'var(--radius)',
+                border: currentFont === font.value
+                  ? '2px solid var(--accent-blue)'
+                  : '1px solid var(--border)',
+                background: currentFont === font.value
+                  ? 'var(--accent-blue-bg)'
+                  : 'var(--bg)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}>
+              <div style={{
+                fontFamily: `'${font.value}', sans-serif`,
+                fontSize: 15,
+                fontWeight: 600,
+                marginBottom: 4,
+                color: currentFont === font.value ? 'var(--accent-blue)' : 'var(--text)',
+              }}>
+                {font.label}
+              </div>
+              <div style={{
+                fontFamily: `'${font.value}', sans-serif`,
+                fontSize: 11,
+                color: 'var(--text2)',
+              }}>
+                {font.sample}
+              </div>
+              <div style={{
+                fontFamily: `'${font.value}', sans-serif`,
+                fontSize: 11,
+                color: 'var(--text2)',
+                marginTop: 4,
+              }}>
+                Журнал ОПС 2026
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Employees */}
       <div className="card" style={{marginBottom:16}}>
         <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Сотрудники</div>
         <div style={{fontSize:12, color:'var(--text2)', marginBottom:16}}>
           Сотрудники доступны в выпадающих списках форм. При увольнении — помечаются как уволенные, из существующих записей не удаляются.
         </div>
-
-        {/* Add/Edit form */}
         <form onSubmit={saveEmployee} style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr auto', gap:8, marginBottom:16, alignItems:'end'}}>
           <div className="field" style={{margin:0}}>
             <label>ФИО *</label>
@@ -268,7 +328,6 @@ export default function SettingsPage() {
           </div>
         </form>
 
-        {/* Active employees */}
         {activeEmployees.length > 0 && (
           <table style={{width:'100%', fontSize:13}}>
             <thead>
@@ -290,7 +349,7 @@ export default function SettingsPage() {
                   <td style={{padding:'6px 8px'}}>
                     <div style={{display:'flex', gap:6}}>
                       <button className="btn btn-ghost btn-sm" onClick={() => startEdit(emp)}>✏️</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => deactivateEmployee(emp.id)} title="Уволить">Уволить</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => deactivateEmployee(emp.id)}>Уволить</button>
                     </div>
                   </td>
                 </tr>
@@ -299,7 +358,6 @@ export default function SettingsPage() {
           </table>
         )}
 
-        {/* Inactive employees toggle */}
         {inactiveEmployees.length > 0 && (
           <div style={{marginTop:12}}>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowInactive(v=>!v)}>
@@ -323,7 +381,6 @@ export default function SettingsPage() {
             )}
           </div>
         )}
-
         {employees.length === 0 && !empLoading && (
           <div style={{fontSize:13, color:'var(--text2)', textAlign:'center', padding:'16px 0'}}>
             Сотрудников пока нет. Добавьте первого сотрудника выше.
@@ -335,23 +392,18 @@ export default function SettingsPage() {
       <div className="card">
         <div style={{fontWeight:700, fontSize:14, marginBottom:4}}>Резервное копирование</div>
         <div style={{fontSize:12, color:'var(--text2)', marginBottom:16}}>
-          Экспорт создаёт ZIP-архив с JSON-дампом всех данных (инциденты, сотрудники, настройки).
-          Импорт <strong>заменяет</strong> все текущие данные.
+          Экспорт создаёт ZIP-архив с JSON-дампом всех данных. Импорт <strong>заменяет</strong> все текущие данные.
         </div>
-
         {backupMsg && (
-          <div style={{
-            padding:'10px 14px', borderRadius:'var(--radius)', fontSize:13, marginBottom:12,
+          <div style={{padding:'10px 14px', borderRadius:'var(--radius)', fontSize:13, marginBottom:12,
             background: bkOk ? 'var(--success-bg)' : 'var(--danger-bg)',
             border: '1px solid ' + (bkOk ? '#86efac' : '#fca5a5'),
-            color: bkOk ? 'var(--success)' : 'var(--danger)',
-          }}>{bkOk ? '✓ ' : '✗ '}{bkTxt}</div>
+            color: bkOk ? 'var(--success)' : 'var(--danger)'}}>
+            {bkOk ? '✓ ' : '✗ '}{bkTxt}
+          </div>
         )}
-
         <div style={{display:'flex', gap:12, flexWrap:'wrap'}}>
-          <button className="btn btn-primary" onClick={handleExport}>
-            ⬇ Экспорт резервной копии (.zip)
-          </button>
+          <button className="btn btn-primary" onClick={handleExport}>⬇ Экспорт (.zip)</button>
           <div>
             <input ref={importRef} type="file" accept=".zip,.json" style={{display:'none'}}
               onChange={e => handleImport(e.target.files[0])} />
