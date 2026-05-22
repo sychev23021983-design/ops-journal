@@ -139,7 +139,11 @@ export default function IncidentsPage() {
                     <td style={{fontSize:12}}>
                       {rootCauseLabel(inc.root_cause)}
                       {inc.outcome && <div style={{color:'var(--text2)', fontSize:11}}>{outcomeLabel(inc.outcome)}</div>}
-                      {inc.object_left_before_fix ? <div><span className="flag-warn">ушёл до устранения</span></div> : null}
+                      {/* Заявка: авто по наличию времени звонка */}
+                      {(inc.called_electrician_at || inc.called_duty_at)
+                        ? <div><span className="flag-ok">Заявка</span></div>
+                        : <div><span className="flag-warn">Без заявки</span></div>}
+                      {inc.object_left_before_fix ? <div><span className="flag-warn">ушёл до устранения ⚠️</span></div> : null}
                       {!inc.object_under_guard ? <div><span className="flag-warn">не под охраной</span></div> : null}
                       {inc.additional_investigation ? <div><span className="flag-warn">доп. расследование</span></div> : null}
                     </td>
@@ -192,3 +196,4 @@ export default function IncidentsPage() {
     </div>
   )
 }
+
