@@ -32,11 +32,19 @@ export const api = {
   me:    ()         => req('GET',  '/auth/me'),
 
   incidents: {
-    list:   (params = {}) => req('GET',    '/incidents?' + new URLSearchParams(params)),
-    get:    (id)           => req('GET',    `/incidents/${id}`),
-    create: (data)         => req('POST',   '/incidents', data),
-    update: (id, data)     => req('PUT',    `/incidents/${id}`, data),
-    delete: (id)           => req('DELETE', `/incidents/${id}`),
+    list:        (params = {}) => req('GET',    '/incidents?' + new URLSearchParams(params)),
+    get:         (id)           => req('GET',    `/incidents/${id}`),
+    create:      (data)         => req('POST',   '/incidents', data),
+    update:      (id, data)     => req('PUT',    `/incidents/${id}`, data),
+    patchStatus: (id, status)   => req('PATCH',  `/incidents/${id}/status`, { status }),
+    delete:      (id)           => req('DELETE', `/incidents/${id}`),
+  },
+
+  employees: {
+    list:   (includeInactive = false) => req('GET',    `/employees?include_inactive=${includeInactive}`),
+    create: (data)                    => req('POST',   '/employees', data),
+    update: (id, data)                => req('PUT',    `/employees/${id}`, data),
+    delete: (id)                      => req('DELETE', `/employees/${id}`),
   },
 
   stats:  (params = {}) => req('GET', '/stats?' + new URLSearchParams(params)),
@@ -48,6 +56,11 @@ export const api = {
     publicSettings: ()       => fetch('/api/settings/public').then(r => r.json()),
     uploadLogo:     (file)   => uploadFile('/settings/upload/logo', file),
     uploadFavicon:  (file)   => uploadFile('/settings/upload/favicon', file),
+  },
+
+  backup: {
+    exportUrl: () => BASE + '/backup/export',
+    import:    (file) => uploadFile('/backup/import', file),
   },
 }
 
