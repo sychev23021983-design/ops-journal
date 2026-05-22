@@ -167,12 +167,18 @@ export default function ReportPage() {
                     <td style={{fontSize:12}}>
                       {inc.discovered_by && <div>{inc.discovered_by}</div>}
                       {inc.employee_actions && <div style={{color:'var(--text2)', fontSize:11}}>{employeeActionLabel(inc.employee_actions)}</div>}
-                      {inc.repair_request_filed
+                      {/* Заявка — авто по наличию времени звонка */}
+                      {(inc.called_electrician_at || inc.called_duty_at)
                         ? <span className="flag-ok" style={{marginTop:2, display:'inline-block'}}>Заявка</span>
                         : <span className="flag-warn" style={{marginTop:2, display:'inline-block'}}>Без заявки</span>}
+                      {/* Объект покинут до устранения */}
                       {inc.object_left_before_fix
-                        ? <div><span className="flag-warn" style={{fontSize:10}}>ушёл до устранения</span></div>
+                        ? <div><span className="flag-warn" style={{fontSize:10}}>ушёл до устранения ⚠️</span></div>
                         : null}
+                      {/* Объект под охраной */}
+                      {inc.object_under_guard === 0 || inc.object_under_guard === false
+                        ? <div><span className="flag-warn" style={{fontSize:10}}>не под охраной</span></div>
+                        : <div><span className="flag-ok" style={{fontSize:10}}>под охраной</span></div>}
                     </td>
                     <td style={{fontSize:12}}>
                       {inc.guard_response_type && (
@@ -249,3 +255,4 @@ export default function ReportPage() {
     </div>
   )
 }
+
