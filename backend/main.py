@@ -2,17 +2,17 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from contextlib import asynccontextmanager
-import sqlite3, os, jwt, shutil
+import sqlite3, os, jwt, shutil, json, io, zipfile, tempfile
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
-DB_PATH      = os.getenv("DB_PATH",      "/app/data/ops.db")
-SECRET_KEY   = os.getenv("SECRET_KEY",   "changeme-secret-key-2026")
+DB_PATH         = os.getenv("DB_PATH",         "/app/data/ops.db")
+SECRET_KEY      = os.getenv("SECRET_KEY",      "changeme-secret-key-2026")
 ADMIN_PASSWORD  = os.getenv("ADMIN_PASSWORD",  "admin123")
-UPLOAD_DIR   = "/app/data/uploads"
+UPLOAD_DIR      = "/app/data/uploads"
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -32,38 +32,66 @@ def init_db():
             incident_type           TEXT NOT NULL,
             description             TEXT,
             discovered_by           TEXT,
+            notified_person         TEXT,
+            called_electrician_at   TEXT,
+            called_duty_at          TEXT,
             employee_actions        TEXT,
             repair_request_filed    INTEGER DEFAULT 0,
             object_left_before_fix  INTEGER DEFAULT 0,
             object_under_guard      INTEGER DEFAULT 1,
             guard_response          TEXT,
+            guard_response_type     TEXT,
             master_arrived_at       TEXT,
             response_time_min       INTEGER,
-            guilty_party            TEXT NOT NULL,
+            master_actions          TEXT,
+            outcome                 TEXT,
+            additional_investigation INTEGER DEFAULT 0,
+            guilty_party            TEXT NOT NULL DEFAULT 'unknown',
+            contract_clause         TEXT,
             root_cause              TEXT,
             resolution              TEXT,
             resolved_at             TEXT,
+            related_incident_id     INTEGER,
             status                  TEXT NOT NULL DEFAULT 'new',
-            priority                TEXT NOT NULL DEFAULT 'medium',
             notes                   TEXT
+        );
+        CREATE TABLE IF NOT EXISTS employees (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name  TEXT NOT NULL,
+            position   TEXT,
+            phone      TEXT,
+            is_active  INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
             value TEXT
         );
     """)
+    # Migrations: add new columns if they don't exist
     existing = [row[1] for row in c.execute("PRAGMA table_info(incidents)").fetchall()]
     new_cols = {
-        "employee_actions":       "TEXT",
-        "repair_request_filed":   "INTEGER DEFAULT 0",
-        "object_left_before_fix": "INTEGER DEFAULT 0",
-        "object_under_guard":     "INTEGER DEFAULT 1",
-        "master_arrived_at":      "TEXT",
+        "notified_person":          "TEXT",
+        "called_electrician_at":    "TEXT",
+        "called_duty_at":           "TEXT",
+        "guard_response_type":      "TEXT",
+        "master_actions":           "TEXT",
+        "outcome":                  "TEXT",
+        "additional_investigation": "INTEGER DEFAULT 0",
+        "contract_clause":          "TEXT",
+        "related_incident_id":      "INTEGER",
+        "employee_actions":         "TEXT",
+        "repair_request_filed":     "INTEGER DEFAULT 0",
+        "object_left_before_fix":   "INTEGER DEFAULT 0",
+        "object_under_guard":       "INTEGER DEFAULT 1",
+        "master_arrived_at":        "TEXT",
+        "response_time_min":        "INTEGER",
     }
     for col, typedef in new_cols.items():
         if col not in existing:
             c.execute(f"ALTER TABLE incidents ADD COLUMN {col} {typedef}")
-    # Default viewer password
+
+    # Remove old priority column is fine to keep (just not used)
     c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('viewer_password', 'viewer123')")
     conn.commit()
     conn.close()
@@ -88,6 +116,8 @@ def require_admin(role: str = Depends(get_role)):
         raise HTTPException(status_code=403, detail="Требуются права администратора")
     return role
 
+# ── Models ────────────────────────────────────────────────────────────────────
+
 class LoginRequest(BaseModel):
     password: str
 
@@ -96,27 +126,48 @@ class IncidentCreate(BaseModel):
     incident_type: str
     description: Optional[str] = None
     discovered_by: Optional[str] = None
+    notified_person: Optional[str] = None
+    called_electrician_at: Optional[str] = None
+    called_duty_at: Optional[str] = None
     employee_actions: Optional[str] = None
     repair_request_filed: Optional[bool] = False
     object_left_before_fix: Optional[bool] = False
     object_under_guard: Optional[bool] = True
     guard_response: Optional[str] = None
+    guard_response_type: Optional[str] = None
     master_arrived_at: Optional[str] = None
     response_time_min: Optional[int] = None
-    guilty_party: str
+    master_actions: Optional[str] = None
+    outcome: Optional[str] = None
+    additional_investigation: Optional[bool] = False
+    guilty_party: str = "unknown"
+    contract_clause: Optional[str] = None
     root_cause: Optional[str] = None
     resolution: Optional[str] = None
     resolved_at: Optional[str] = None
+    related_incident_id: Optional[int] = None
     status: str = "new"
-    priority: str = "medium"
     notes: Optional[str] = None
 
 class IncidentUpdate(IncidentCreate):
     pass
 
+class IncidentStatusUpdate(BaseModel):
+    status: str
+
+class EmployeeCreate(BaseModel):
+    full_name: str
+    position: Optional[str] = None
+    phone: Optional[str] = None
+
+class EmployeeUpdate(EmployeeCreate):
+    is_active: Optional[bool] = True
+
 class SettingsUpdate(BaseModel):
     viewer_password: Optional[str] = None
     logo_size: Optional[str] = None
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -132,7 +183,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static uploads
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
@@ -146,7 +196,6 @@ def login(req: LoginRequest):
         viewer_password = viewer_pwd["value"] if viewer_pwd else "viewer123"
     finally:
         conn.close()
-
     if req.password == ADMIN_PASSWORD:
         return {"token": create_token("admin"), "role": "admin"}
     elif req.password == viewer_password:
@@ -158,7 +207,7 @@ def login(req: LoginRequest):
 def me(role: str = Depends(get_role)):
     return {"role": role}
 
-# ── Settings ─────────────────────────────────────────────────────────────────
+# ── Settings ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/settings")
 def get_settings(_=Depends(require_admin)):
@@ -166,7 +215,6 @@ def get_settings(_=Depends(require_admin)):
     try:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
         result = {r["key"]: r["value"] for r in rows}
-        # Не отдаём пароли в открытом виде — только факт наличия
         if "viewer_password" in result:
             result["viewer_password_set"] = bool(result["viewer_password"])
             del result["viewer_password"]
@@ -179,11 +227,9 @@ def update_settings(data: SettingsUpdate, _=Depends(require_admin)):
     conn = get_conn()
     try:
         if data.viewer_password:
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('viewer_password', ?)",
-                        (data.viewer_password,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('viewer_password', ?)", (data.viewer_password,))
         if data.logo_size:
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_size', ?)",
-                        (data.logo_size,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_size', ?)", (data.logo_size,))
         conn.commit()
         return {"ok": True}
     finally:
@@ -195,15 +241,13 @@ async def upload_file(file_type: str, file: UploadFile = File(...), _=Depends(re
         raise HTTPException(400, "Тип файла должен быть logo или favicon")
     if not file.filename.lower().endswith(".png"):
         raise HTTPException(400, "Только PNG файлы")
-    ext = "png"
-    filename = f"{file_type}.{ext}"
+    filename = f"{file_type}.png"
     path = os.path.join(UPLOAD_DIR, filename)
     with open(path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     conn = get_conn()
     try:
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-                    (f"{file_type}_url", f"/uploads/{filename}"))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (f"{file_type}_url", f"/uploads/{filename}"))
         conn.commit()
     finally:
         conn.close()
@@ -211,7 +255,6 @@ async def upload_file(file_type: str, file: UploadFile = File(...), _=Depends(re
 
 @app.get("/api/settings/public")
 def get_public_settings():
-    """Публичные настройки — доступны без авторизации"""
     conn = get_conn()
     try:
         logo    = conn.execute("SELECT value FROM settings WHERE key='logo_url'").fetchone()
@@ -222,6 +265,149 @@ def get_public_settings():
             "favicon_url": favicon["value"] if favicon else None,
             "logo_size":   size["value"]    if size    else "32",
         }
+    finally:
+        conn.close()
+
+# ── Backup / Restore ──────────────────────────────────────────────────────────
+
+@app.get("/api/backup/export")
+def export_backup(_=Depends(require_admin)):
+    """Export full DB as JSON inside a ZIP archive"""
+    conn = get_conn()
+    try:
+        incidents = [dict(r) for r in conn.execute("SELECT * FROM incidents ORDER BY id").fetchall()]
+        employees = [dict(r) for r in conn.execute("SELECT * FROM employees ORDER BY id").fetchall()]
+        settings  = [dict(r) for r in conn.execute("SELECT * FROM settings").fetchall()]
+    finally:
+        conn.close()
+
+    backup = {
+        "version": 1,
+        "exported_at": datetime.utcnow().isoformat(),
+        "incidents": incidents,
+        "employees": employees,
+        "settings": settings,
+    }
+    json_bytes = json.dumps(backup, ensure_ascii=False, indent=2).encode("utf-8")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"ops_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json", json_bytes)
+    buf.seek(0)
+
+    filename = f"ops_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.zip"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+@app.post("/api/backup/import")
+async def import_backup(file: UploadFile = File(...), _=Depends(require_admin)):
+    """Import backup from JSON or ZIP"""
+    content = await file.read()
+
+    # Unzip if needed
+    if file.filename.endswith(".zip"):
+        buf = io.BytesIO(content)
+        with zipfile.ZipFile(buf, "r") as zf:
+            names = zf.namelist()
+            json_names = [n for n in names if n.endswith(".json")]
+            if not json_names:
+                raise HTTPException(400, "В архиве не найден JSON файл")
+            content = zf.read(json_names[0])
+
+    try:
+        data = json.loads(content.decode("utf-8"))
+    except Exception:
+        raise HTTPException(400, "Не удалось распарсить JSON")
+
+    if data.get("version") != 1:
+        raise HTTPException(400, "Неизвестная версия резервной копии")
+
+    conn = get_conn()
+    try:
+        c = conn.cursor()
+        # Clear existing data
+        c.execute("DELETE FROM incidents")
+        c.execute("DELETE FROM employees")
+        # Restore incidents
+        for inc in data.get("incidents", []):
+            cols = ", ".join(inc.keys())
+            placeholders = ", ".join(["?"] * len(inc))
+            c.execute(f"INSERT OR REPLACE INTO incidents ({cols}) VALUES ({placeholders})", list(inc.values()))
+        # Restore employees
+        for emp in data.get("employees", []):
+            cols = ", ".join(emp.keys())
+            placeholders = ", ".join(["?"] * len(emp))
+            c.execute(f"INSERT OR REPLACE INTO employees ({cols}) VALUES ({placeholders})", list(emp.values()))
+        # Restore settings (skip passwords to avoid overwrite)
+        for s in data.get("settings", []):
+            if s["key"] not in ("admin_password",):
+                c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (s["key"], s["value"]))
+        conn.commit()
+        return {
+            "ok": True,
+            "incidents": len(data.get("incidents", [])),
+            "employees": len(data.get("employees", [])),
+        }
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, f"Ошибка импорта: {str(e)}")
+    finally:
+        conn.close()
+
+# ── Employees ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/employees")
+def list_employees(include_inactive: bool = False, role: str = Depends(get_role)):
+    conn = get_conn()
+    try:
+        if include_inactive:
+            rows = conn.execute("SELECT * FROM employees ORDER BY is_active DESC, full_name").fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM employees WHERE is_active=1 ORDER BY full_name").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+@app.post("/api/employees", status_code=201)
+def create_employee(data: EmployeeCreate, _=Depends(require_admin)):
+    conn = get_conn()
+    try:
+        now = datetime.utcnow().isoformat()
+        cur = conn.execute(
+            "INSERT INTO employees (full_name, position, phone, is_active, created_at) VALUES (?,?,?,1,?)",
+            (data.full_name, data.position, data.phone, now)
+        )
+        conn.commit()
+        return dict(conn.execute("SELECT * FROM employees WHERE id=?", (cur.lastrowid,)).fetchone())
+    finally:
+        conn.close()
+
+@app.put("/api/employees/{id}")
+def update_employee(id: int, data: EmployeeUpdate, _=Depends(require_admin)):
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT id FROM employees WHERE id=?", (id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Не найдено")
+        conn.execute(
+            "UPDATE employees SET full_name=?, position=?, phone=?, is_active=? WHERE id=?",
+            (data.full_name, data.position, data.phone, 1 if data.is_active else 0, id)
+        )
+        conn.commit()
+        return dict(conn.execute("SELECT * FROM employees WHERE id=?", (id,)).fetchone())
+    finally:
+        conn.close()
+
+@app.delete("/api/employees/{id}", status_code=204)
+def delete_employee(id: int, _=Depends(require_admin)):
+    """Soft delete — mark as inactive"""
+    conn = get_conn()
+    try:
+        conn.execute("UPDATE employees SET is_active=0 WHERE id=?", (id,))
+        conn.commit()
     finally:
         conn.close()
 
@@ -261,21 +447,41 @@ def create_incident(data: IncidentCreate, role: str = Depends(get_role)):
     conn = get_conn()
     try:
         now = datetime.utcnow().isoformat()
+        # Auto-calculate response_time_min if not provided
+        response_time = data.response_time_min
+        if response_time is None and data.master_arrived_at:
+            call_time = data.called_electrician_at or data.called_duty_at
+            if call_time:
+                try:
+                    t1 = datetime.fromisoformat(call_time)
+                    t2 = datetime.fromisoformat(data.master_arrived_at)
+                    response_time = max(0, int((t2 - t1).total_seconds() / 60))
+                except Exception:
+                    pass
+
         cur = conn.execute("""
             INSERT INTO incidents
             (created_at, event_at, incident_type, description, discovered_by,
+             notified_person, called_electrician_at, called_duty_at,
              employee_actions, repair_request_filed, object_left_before_fix, object_under_guard,
-             guard_response, master_arrived_at, response_time_min, guilty_party,
-             root_cause, resolution, resolved_at, status, priority, notes)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             guard_response, guard_response_type, master_arrived_at, response_time_min,
+             master_actions, outcome, additional_investigation,
+             guilty_party, contract_clause, root_cause, resolution, resolved_at,
+             related_incident_id, status, notes)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (now, data.event_at, data.incident_type, data.description, data.discovered_by,
+              data.notified_person, data.called_electrician_at, data.called_duty_at,
               data.employee_actions,
               1 if data.repair_request_filed else 0,
               1 if data.object_left_before_fix else 0,
               1 if data.object_under_guard else 0,
-              data.guard_response, data.master_arrived_at, data.response_time_min,
-              data.guilty_party, data.root_cause, data.resolution, data.resolved_at,
-              data.status, data.priority, data.notes))
+              data.guard_response, data.guard_response_type,
+              data.master_arrived_at, response_time,
+              data.master_actions, data.outcome,
+              1 if data.additional_investigation else 0,
+              data.guilty_party, data.contract_clause,
+              data.root_cause, data.resolution, data.resolved_at,
+              data.related_incident_id, data.status, data.notes))
         conn.commit()
         return dict(conn.execute("SELECT * FROM incidents WHERE id=?", (cur.lastrowid,)).fetchone())
     finally:
@@ -299,23 +505,53 @@ def update_incident(id: int, data: IncidentUpdate, role: str = Depends(get_role)
         row = conn.execute("SELECT id FROM incidents WHERE id=?", (id,)).fetchone()
         if not row:
             raise HTTPException(404, "Не найдено")
+
+        response_time = data.response_time_min
+        if response_time is None and data.master_arrived_at:
+            call_time = data.called_electrician_at or data.called_duty_at
+            if call_time:
+                try:
+                    t1 = datetime.fromisoformat(call_time)
+                    t2 = datetime.fromisoformat(data.master_arrived_at)
+                    response_time = max(0, int((t2 - t1).total_seconds() / 60))
+                except Exception:
+                    pass
+
         conn.execute("""
             UPDATE incidents SET
             event_at=?, incident_type=?, description=?, discovered_by=?,
+            notified_person=?, called_electrician_at=?, called_duty_at=?,
             employee_actions=?, repair_request_filed=?, object_left_before_fix=?, object_under_guard=?,
-            guard_response=?, master_arrived_at=?, response_time_min=?, guilty_party=?,
-            root_cause=?, resolution=?, resolved_at=?, status=?, priority=?, notes=?
+            guard_response=?, guard_response_type=?, master_arrived_at=?, response_time_min=?,
+            master_actions=?, outcome=?, additional_investigation=?,
+            guilty_party=?, contract_clause=?, root_cause=?, resolution=?, resolved_at=?,
+            related_incident_id=?, status=?, notes=?
             WHERE id=?
         """, (data.event_at, data.incident_type, data.description, data.discovered_by,
+              data.notified_person, data.called_electrician_at, data.called_duty_at,
               data.employee_actions,
               1 if data.repair_request_filed else 0,
               1 if data.object_left_before_fix else 0,
               1 if data.object_under_guard else 0,
-              data.guard_response, data.master_arrived_at, data.response_time_min,
-              data.guilty_party, data.root_cause, data.resolution, data.resolved_at,
-              data.status, data.priority, data.notes, id))
+              data.guard_response, data.guard_response_type,
+              data.master_arrived_at, response_time,
+              data.master_actions, data.outcome,
+              1 if data.additional_investigation else 0,
+              data.guilty_party, data.contract_clause,
+              data.root_cause, data.resolution, data.resolved_at,
+              data.related_incident_id, data.status, data.notes, id))
         conn.commit()
         return dict(conn.execute("SELECT * FROM incidents WHERE id=?", (id,)).fetchone())
+    finally:
+        conn.close()
+
+@app.patch("/api/incidents/{id}/status")
+def patch_status(id: int, data: IncidentStatusUpdate, role: str = Depends(get_role)):
+    conn = get_conn()
+    try:
+        conn.execute("UPDATE incidents SET status=? WHERE id=?", (data.status, id))
+        conn.commit()
+        return {"ok": True}
     finally:
         conn.close()
 
@@ -341,16 +577,18 @@ def get_stats(month: Optional[str] = None, role: str = Depends(get_role)):
         by_type      = conn.execute(f"SELECT incident_type, COUNT(*) as cnt FROM incidents {where} GROUP BY incident_type", params).fetchall()
         by_status    = conn.execute(f"SELECT status, COUNT(*) as cnt FROM incidents {where} GROUP BY status", params).fetchall()
         avg_response = conn.execute(f"SELECT AVG(response_time_min) FROM incidents {where} AND response_time_min IS NOT NULL", params).fetchone()[0]
-        violations_no_master = conn.execute(f"SELECT COUNT(*) FROM incidents {where} AND repair_request_filed=1 AND master_arrived_at IS NULL AND status NOT IN ('new')", params).fetchone()[0]
-        not_under_guard      = conn.execute(f"SELECT COUNT(*) FROM incidents {where} AND object_under_guard=0", params).fetchone()[0]
+        violations_no_master = conn.execute(
+            f"SELECT COUNT(*) FROM incidents {where} AND repair_request_filed=1 AND master_arrived_at IS NULL AND status NOT IN ('new')", params
+        ).fetchone()[0]
+        not_under_guard = conn.execute(f"SELECT COUNT(*) FROM incidents {where} AND object_under_guard=0", params).fetchone()[0]
         return {
             "total": total,
             "by_guilty":   [dict(r) for r in by_guilty],
             "by_type":     [dict(r) for r in by_type],
             "by_status":   [dict(r) for r in by_status],
-            "avg_response_min":    round(avg_response, 1) if avg_response else None,
-            "violations_no_master": violations_no_master,
-            "not_under_guard":      not_under_guard,
+            "avg_response_min":      round(avg_response, 1) if avg_response else None,
+            "violations_no_master":  violations_no_master,
+            "not_under_guard":       not_under_guard,
         }
     finally:
         conn.close()
