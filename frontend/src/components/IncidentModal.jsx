@@ -16,7 +16,6 @@ const EMPTY = {
   called_electrician_at: '',
   called_duty_at: '',
   employee_actions: '',
-  repair_request_filed: false,
   object_left_before_fix: false,
   object_under_guard: true,
   guard_response: '',
@@ -52,7 +51,6 @@ export default function IncidentModal({ incident, onClose, onSaved, employees = 
         master_arrived_at:     incident.master_arrived_at ? dayjs(incident.master_arrived_at).format('YYYY-MM-DDTHH:mm') : '',
         resolved_at:           incident.resolved_at ? dayjs(incident.resolved_at).format('YYYY-MM-DDTHH:mm') : '',
         response_time_min:     incident.response_time_min ?? '',
-        repair_request_filed:        !!incident.repair_request_filed,
         object_left_before_fix:      !!incident.object_left_before_fix,
         object_under_guard:          incident.object_under_guard === undefined ? true : !!incident.object_under_guard,
         additional_investigation:    !!incident.additional_investigation,
@@ -246,12 +244,7 @@ export default function IncidentModal({ incident, onClose, onSaved, employees = 
                     </select>
                   </div>
                   <div className="field" style={{display:'flex', flexDirection:'column', gap:8, justifyContent:'center'}}>
-                    <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13, fontWeight:400}}>
-                      <input type="checkbox" checked={form.repair_request_filed}
-                        onChange={e => set('repair_request_filed', e.target.checked)}
-                        style={{width:16, height:16}} />
-                      Заявка на ремонт подана
-                    </label>
+
                     <label style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', textTransform:'none', fontSize:13, fontWeight:400}}>
                       <input type="checkbox" checked={form.object_left_before_fix}
                         onChange={e => set('object_left_before_fix', e.target.checked)}
@@ -423,3 +416,4 @@ export default function IncidentModal({ incident, onClose, onSaved, employees = 
     </div>
   )
 }
+
