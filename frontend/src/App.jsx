@@ -1,11 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Layout from './components/Layout'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import IncidentsPage from './pages/IncidentsPage'
-import ReportPage from './pages/ReportPage'
-import SettingsPage from './pages/SettingsPage'
-import { getToken } from './api/client'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import Layout from "./components/Layout"
+import LoginPage from "./pages/LoginPage"
+import DashboardPage from "./pages/DashboardPage"
+import IncidentsPage from "./pages/IncidentsPage"
+import ReportPage from "./pages/ReportPage"
+import SettingsPage from "./pages/SettingsPage"
+import PlanPage from "./pages/PlanPage"
+import { getToken } from "./api/client"
 
 function RequireAuth({ children }) {
   const token = getToken()
@@ -27,9 +28,11 @@ export default function App() {
           <Route path="dashboard"  element={<DashboardPage />} />
           <Route path="incidents"  element={<IncidentsPage />} />
           <Route path="report"     element={<ReportPage />} />
+          <Route path="plan"       element={<PlanPage />} />
           <Route path="settings"   element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
   )
 }
+
