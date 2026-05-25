@@ -151,6 +151,7 @@ button { cursor: pointer; font-family: var(--sans); }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  position: relative;   /* якорь для position:absolute дочерних страниц */
 }
 
 /* ── Top bar ── */
