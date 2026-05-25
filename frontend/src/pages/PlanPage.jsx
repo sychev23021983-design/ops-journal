@@ -1,11 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react"
-import { api } from "../api/client"
+import { api, getToken } from "../api/client"
 
 export default function PlanPage() {
-  // imgUrl — URL для <img src>, либо null
-  // Три состояния: "loading" | "ready" | "empty"
-  const [status, setStatus]         = useState("loading")
-  const [imgUrl, setImgUrl]         = useState(null)
+  // blobUrl — объектный URL созданный из blob, null если плана нет
+  const [status, setStatus]         = useState("loading")  // loading | ready | empty
+  const [blobUrl, setBlobUrl]       = useState(null)
   const [scale, setScale]           = useState(1)
   const [isDragging, setIsDragging] = useState(false)
   const [pos, setPos]               = useState({ x: 0, y: 0 })
@@ -16,18 +15,37 @@ export default function PlanPage() {
   const containerRef                = useRef(null)
   const imgRef                      = useRef(null)
   const touchRef                    = useRef(null)
+  const currentBlobRef              = useRef(null)  // для revoke при замене
 
-  // При монтировании проверяем есть ли план на сервере
+  // Загрузить картинку с сервера через fetch+токен → blob URL
+  async function loadFromServer() {
+    setStatus("loading")
+    try {
+      const res = await fetch(api.plan.imageUrl(), {
+        headers: { "Authorization": `Bearer ${getToken()}` },
+      })
+      if (res.status === 404) { setStatus("empty"); return }
+      if (!res.ok) { setStatus("empty"); return }
+      const blob = await res.blob()
+      // Освобождаем старый blob URL если был
+      if (currentBlobRef.current) URL.revokeObjectURL(currentBlobRef.current)
+      const url = URL.createObjectURL(blob)
+      currentBlobRef.current = url
+      setBlobUrl(url)
+      setStatus("ready")
+      setPos({ x: 0, y: 0 })
+    } catch {
+      setStatus("empty")
+    }
+  }
+
+  // При монтировании — загружаем с сервера
   useEffect(() => {
-    api.plan.exists().then(exists => {
-      if (exists) {
-        // Добавляем timestamp чтобы браузер не кэшировал старую версию
-        setImgUrl(api.plan.imageUrl() + "?t=" + Date.now())
-        setStatus("ready")
-      } else {
-        setStatus("empty")
-      }
-    })
+    loadFromServer()
+    return () => {
+      // Освобождаем blob URL при размонтировании
+      if (currentBlobRef.current) URL.revokeObjectURL(currentBlobRef.current)
+    }
   }, [])
 
   // fit по высоте
@@ -44,14 +62,13 @@ export default function PlanPage() {
 
   function onImgLoad() { fitHeight() }
 
-  // Восстановление fitHeight если img.complete уже true
   useEffect(() => {
     if (status !== "ready") return
     const id = requestAnimationFrame(() => {
       if (imgRef.current?.complete) fitHeight()
     })
     return () => cancelAnimationFrame(id)
-  }, [status, imgUrl, fitHeight])
+  }, [status, blobUrl, fitHeight])
 
   // Загрузка файла на сервер
   async function processFile(file) {
@@ -60,11 +77,10 @@ export default function PlanPage() {
     setError(null)
     try {
       await api.plan.upload(file)
-      setImgUrl(api.plan.imageUrl() + "?t=" + Date.now())
-      setStatus("ready")
-      setPos({ x: 0, y: 0 })
+      await loadFromServer()
     } catch (e) {
       setError("Ошибка загрузки: " + e.message)
+      setUploading(false)
     } finally {
       setUploading(false)
     }
@@ -114,13 +130,14 @@ export default function PlanPage() {
 
   async function clearPlan() {
     try { await api.plan.delete() } catch {}
-    setImgUrl(null)
+    if (currentBlobRef.current) { URL.revokeObjectURL(currentBlobRef.current); currentBlobRef.current = null }
+    setBlobUrl(null)
     setStatus("empty")
     setScale(1)
     setPos({ x: 0, y: 0 })
   }
 
-  const hasImage = status === "ready" && imgUrl
+  const hasImage = status === "ready" && blobUrl
 
   return (
     <div className="plan-page">
@@ -182,7 +199,7 @@ export default function PlanPage() {
         {hasImage && (
           <img
             ref={imgRef}
-            src={imgUrl}
+            src={blobUrl}
             alt="План объекта"
             className="plan-image"
             onLoad={onImgLoad}
@@ -194,4 +211,3 @@ export default function PlanPage() {
     </div>
   )
 }
-
