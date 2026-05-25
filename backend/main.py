@@ -605,7 +605,41 @@ def get_months(role: str = Depends(get_role)):
     finally:
         conn.close()
 
+# ── Plan image ───────────────────────────────────────────────────────────────
+
+PLAN_FILE = os.path.join(UPLOAD_DIR, "plan.image")
+
+@app.post("/api/plan/upload")
+async def upload_plan(file: UploadFile = File(...), role: str = Depends(get_role)):
+    """Загрузить план объекта. Доступно всем авторизованным пользователям."""
+    content_type = file.content_type or ""
+    if not content_type.startswith("image/"):
+        raise HTTPException(400, "Только изображения")
+    data = await file.read()
+    # Сохраняем содержимое и content-type в один файл через простой формат:
+    # первые 64 байта — content-type (padded пробелами), остаток — данные
+    header = content_type.ljust(64).encode("utf-8")[:64]
+    with open(PLAN_FILE, "wb") as f:
+        f.write(header + data)
+    return {"ok": True, "size": len(data), "content_type": content_type}
+
+@app.get("/api/plan/image")
+def get_plan(role: str = Depends(get_role)):
+    """Получить план объекта."""
+    if not os.path.exists(PLAN_FILE):
+        raise HTTPException(404, "План не загружен")
+    with open(PLAN_FILE, "rb") as f:
+        raw = f.read()
+    content_type = raw[:64].decode("utf-8").strip()
+    data = raw[64:]
+    return StreamingResponse(io.BytesIO(data), media_type=content_type)
+
+@app.delete("/api/plan/image", status_code=204)
+def delete_plan(role: str = Depends(get_role)):
+    """Удалить план объекта."""
+    if os.path.exists(PLAN_FILE):
+        os.remove(PLAN_FILE)
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
