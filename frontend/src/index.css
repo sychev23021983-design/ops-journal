@@ -618,14 +618,7 @@ textarea { resize: vertical; min-height: 76px; }
 .violation-card ul { margin-top: 8px; padding-left: 18px; }
 .violation-card li { margin-bottom: 4px; }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .sidebar { width: 100%; position: relative; height: auto; flex-direction: row; flex-wrap: wrap; }
-  .main { margin-left: 0; }
-  .form-grid { grid-template-columns: 1fr; }
-  .page { padding: 14px; }
-  .stat-grid { grid-template-columns: 1fr 1fr; }
-}
+/* Responsive styles moved to bottom mobile block */
 
 
 /* ── Adaptive report table ── */
@@ -895,4 +888,3 @@ textarea { resize: vertical; min-height: 76px; }
   .plan-toolbar-actions { gap: 4px; }
   .btn.btn-sm { padding: 4px 8px; font-size: 11px; }
 }
-
