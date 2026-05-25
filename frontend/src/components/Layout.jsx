@@ -106,9 +106,8 @@ export default function Layout() {
           <div className="topbar-title">{title}</div>
           <div style={{fontSize:12,color:"var(--text2)"}}>{isAdmin ? "Администратор" : "Просмотр"}</div>
         </div>
-        <div style={{flex:1}}><Outlet /></div>
+        <div style={{flex:1, position:"relative", minHeight:0}}><Outlet /></div>
       </div>
     </div>
   )
 }
-
