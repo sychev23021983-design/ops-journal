@@ -89,4 +89,3 @@ async function uploadFile(path, file) {
   }
   return res.json()
 }
-
