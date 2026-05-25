@@ -1,21 +1,48 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+
+const STORAGE_KEY = "ops_plan_image"
 
 export default function PlanPage() {
-  const [imgSrc, setImgSrc]     = useState(null)
-  const [scale, setScale]       = useState(1)
+  const [imgSrc, setImgSrc]         = useState(() => {
+    try { return localStorage.getItem(STORAGE_KEY) || null } catch { return null }
+  })
+  const [scale, setScale]           = useState(1)
   const [isDragging, setIsDragging] = useState(false)
-  const [pos, setPos]           = useState({ x: 0, y: 0 })
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
-  const [startOffset, setStartOffset] = useState({ x: 0, y: 0 })
-  const fileRef = useRef(null)
-  const containerRef = useRef(null)
+  const [pos, setPos]               = useState({ x: 0, y: 0 })
+  const startRef                    = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
+  const fileRef                     = useRef(null)
+  const containerRef                = useRef(null)
+  const imgRef                      = useRef(null)
+  const touchRef                    = useRef(null)
+
+  // Вычислить масштаб "по ширине канваса"
+  const fitWidth = useCallback(() => {
+    if (!containerRef.current || !imgRef.current) return
+    const cw = containerRef.current.clientWidth
+    const iw = imgRef.current.naturalWidth
+    if (!iw) return
+    const s = Math.min(cw / iw, 1)          // не больше 100%, если картинка меньше окна
+    setScale(+s.toFixed(3))
+    setPos({ x: 0, y: 0 })
+  }, [])
+
+  // После загрузки картинки — сразу fit-width
+  function onImgLoad() { fitWidth() }
+
+  function saveAndSet(dataUrl) {
+    try { localStorage.setItem(STORAGE_KEY, dataUrl) } catch { /* >5MB — игнорируем */ }
+    setImgSrc(dataUrl)
+    setPos({ x: 0, y: 0 })
+    setScale(1)                               // fitWidth сработает в onImgLoad
+  }
 
   function handleFile(e) {
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = ev => { setImgSrc(ev.target.result); setScale(1); setPos({ x: 0, y: 0 }) }
+    reader.onload = ev => saveAndSet(ev.target.result)
     reader.readAsDataURL(file)
+    e.target.value = ""                       // сброс input для повторной загрузки
   }
 
   function handleDrop(e) {
@@ -23,36 +50,31 @@ export default function PlanPage() {
     const file = e.dataTransfer.files[0]
     if (!file || !file.type.startsWith("image/")) return
     const reader = new FileReader()
-    reader.onload = ev => { setImgSrc(ev.target.result); setScale(1); setPos({ x: 0, y: 0 }) }
+    reader.onload = ev => saveAndSet(ev.target.result)
     reader.readAsDataURL(file)
   }
 
   function handleWheel(e) {
     if (!imgSrc) return
     e.preventDefault()
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    setScale(s => Math.min(5, Math.max(0.2, +(s + delta).toFixed(2))))
+    const factor = e.deltaY > 0 ? 0.9 : 1.1
+    setScale(s => +Math.min(8, Math.max(0.1, s * factor)).toFixed(3))
   }
 
   function onMouseDown(e) {
     if (e.button !== 0) return
     setIsDragging(true)
-    setStartPos({ x: e.clientX, y: e.clientY })
-    setStartOffset({ ...pos })
+    startRef.current = { mx: e.clientX, my: e.clientY, ox: pos.x, oy: pos.y }
   }
 
   function onMouseMove(e) {
     if (!isDragging) return
-    setPos({
-      x: startOffset.x + (e.clientX - startPos.x),
-      y: startOffset.y + (e.clientY - startPos.y),
-    })
+    const { mx, my, ox, oy } = startRef.current
+    setPos({ x: ox + (e.clientX - mx), y: oy + (e.clientY - my) })
   }
 
   function onMouseUp() { setIsDragging(false) }
 
-  // Touch
-  const touchRef = useRef(null)
   function onTouchStart(e) {
     if (e.touches.length === 1) {
       touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, ox: pos.x, oy: pos.y }
@@ -67,10 +89,9 @@ export default function PlanPage() {
     }
   }
 
-  function resetView() { setScale(1); setPos({ x: 0, y: 0 }) }
-  function fitView() {
-    if (!containerRef.current || !imgSrc) return
-    setScale(1); setPos({ x: 0, y: 0 })
+  function clearPlan() {
+    try { localStorage.removeItem(STORAGE_KEY) } catch {}
+    setImgSrc(null); setScale(1); setPos({ x: 0, y: 0 })
   }
 
   return (
@@ -80,10 +101,12 @@ export default function PlanPage() {
         <div className="plan-toolbar-actions">
           {imgSrc && (
             <>
-              <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => Math.min(5, +(s + 0.2).toFixed(2)))}>＋ Zoom</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => Math.max(0.2, +(s - 0.2).toFixed(2)))}>－ Zoom</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => +Math.min(8, s * 1.2).toFixed(3))}>＋</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => +Math.max(0.1, s * 0.8).toFixed(3))}>－</button>
               <span className="plan-scale-badge">{Math.round(scale * 100)}%</span>
-              <button className="btn btn-ghost btn-sm" onClick={resetView}>↺ Сброс</button>
+              <button className="btn btn-ghost btn-sm" onClick={fitWidth} title="По ширине">⟺</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setScale(1); setPos({ x:0, y:0 }) }} title="Сброс">↺</button>
+              <button className="btn btn-danger btn-sm" onClick={clearPlan}>🗑 Удалить</button>
             </>
           )}
           <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current.click()}>
@@ -115,12 +138,12 @@ export default function PlanPage() {
           </div>
         ) : (
           <img
+            ref={imgRef}
             src={imgSrc}
             alt="План объекта"
             className="plan-image"
-            style={{
-              transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(${scale})`,
-            }}
+            onLoad={onImgLoad}
+            style={{ transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(${scale})` }}
             draggable={false}
           />
         )}
