@@ -1,57 +1,91 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 
 const STORAGE_KEY = "ops_plan_image"
 
+// Сохранить в localStorage, вернуть true если успешно
+function lsSave(key, value) {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch {
+    // Квота переполнена (особенно актуально на мобильных)
+    try { localStorage.removeItem(key) } catch {}
+    return false
+  }
+}
+
+function lsLoad(key) {
+  try { return localStorage.getItem(key) || null } catch { return null }
+}
+
+function lsClear(key) {
+  try { localStorage.removeItem(key) } catch {}
+}
+
 export default function PlanPage() {
-  const [imgSrc, setImgSrc] = useState(() => {
-    try { return localStorage.getItem(STORAGE_KEY) || null } catch { return null }
-  })
+  const [imgSrc, setImgSrc]         = useState(() => lsLoad(STORAGE_KEY))
   const [scale, setScale]           = useState(1)
   const [isDragging, setIsDragging] = useState(false)
   const [pos, setPos]               = useState({ x: 0, y: 0 })
+  const [saveWarn, setSaveWarn]     = useState(false)   // предупреждение если не влезло в localStorage
   const startRef                    = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
   const fileRef                     = useRef(null)
   const containerRef                = useRef(null)
   const imgRef                      = useRef(null)
   const touchRef                    = useRef(null)
 
-  // Масштаб по высоте канваса
+  // ── fit по высоте ──────────────────────────────────
   const fitHeight = useCallback(() => {
-    if (!containerRef.current || !imgRef.current) return
-    const ch = containerRef.current.clientHeight
-    const ih = imgRef.current.naturalHeight
+    const canvas = containerRef.current
+    const img    = imgRef.current
+    if (!canvas || !img) return
+    const ch = canvas.clientHeight
+    const ih = img.naturalHeight
     if (!ch || !ih) return
     setScale(+Math.min(ch / ih, 1).toFixed(3))
     setPos({ x: 0, y: 0 })
   }, [])
 
+  // Когда картинка уже была в state при монтировании (из localStorage),
+  // onLoad может не сработать — img.complete уже true.
+  // Поэтому вызываем fitHeight и через onLoad, и через useEffect.
+  useEffect(() => {
+    if (!imgSrc) return
+    // Небольшая задержка чтобы DOM и размеры канваса успели устояться
+    const id = requestAnimationFrame(() => {
+      if (imgRef.current?.complete) fitHeight()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [imgSrc, fitHeight])
+
   function onImgLoad() { fitHeight() }
 
-  function saveAndSet(dataUrl) {
-    try { localStorage.setItem(STORAGE_KEY, dataUrl) } catch {}
-    setImgSrc(dataUrl)
-    setPos({ x: 0, y: 0 })
-    // fitHeight сработает через onImgLoad
+  // ── загрузка файла ─────────────────────────────────
+  function processFile(file) {
+    if (!file || !file.type.startsWith("image/")) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const dataUrl = ev.target.result
+      const saved = lsSave(STORAGE_KEY, dataUrl)
+      setSaveWarn(!saved)
+      setImgSrc(dataUrl)
+      setPos({ x: 0, y: 0 })
+      // fitHeight вызовется через onImgLoad или useEffect выше
+    }
+    reader.readAsDataURL(file)
   }
 
   function handleFile(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => saveAndSet(ev.target.result)
-    reader.readAsDataURL(file)
+    processFile(e.target.files[0])
     e.target.value = ""
   }
 
   function handleDrop(e) {
     e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (!file || !file.type.startsWith("image/")) return
-    const reader = new FileReader()
-    reader.onload = ev => saveAndSet(ev.target.result)
-    reader.readAsDataURL(file)
+    processFile(e.dataTransfer.files[0])
   }
 
+  // ── зум колесом ───────────────────────────────────
   function handleWheel(e) {
     if (!imgSrc) return
     e.preventDefault()
@@ -59,6 +93,7 @@ export default function PlanPage() {
     setScale(s => +Math.min(8, Math.max(0.05, s * factor)).toFixed(3))
   }
 
+  // ── перетаскивание мышью ──────────────────────────
   function onMouseDown(e) {
     if (e.button !== 0) return
     setIsDragging(true)
@@ -71,6 +106,7 @@ export default function PlanPage() {
   }
   function onMouseUp() { setIsDragging(false) }
 
+  // ── перетаскивание пальцем ────────────────────────
   function onTouchStart(e) {
     if (e.touches.length === 1)
       touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, ox: pos.x, oy: pos.y }
@@ -85,7 +121,8 @@ export default function PlanPage() {
   }
 
   function clearPlan() {
-    try { localStorage.removeItem(STORAGE_KEY) } catch {}
+    lsClear(STORAGE_KEY)
+    setSaveWarn(false)
     setImgSrc(null); setScale(1); setPos({ x: 0, y: 0 })
   }
 
@@ -101,7 +138,7 @@ export default function PlanPage() {
               <span className="plan-scale-badge">{Math.round(scale * 100)}%</span>
               <button className="btn btn-ghost btn-sm" onClick={fitHeight} title="По высоте">↕</button>
               <button className="btn btn-ghost btn-sm" onClick={() => { setScale(1); setPos({ x:0, y:0 }) }} title="100%">↺</button>
-              <button className="btn btn-danger btn-sm" onClick={clearPlan}>🗑</button>
+              <button className="btn btn-danger btn-sm" onClick={clearPlan} title="Удалить план">🗑</button>
             </>
           )}
           <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current.click()}>
@@ -110,6 +147,13 @@ export default function PlanPage() {
           <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile} />
         </div>
       </div>
+
+      {saveWarn && (
+        <div className="plan-save-warn">
+          ⚠️ Изображение слишком большое для сохранения в браузере — план не сохранится после перезагрузки.
+          Используйте файл меньшего размера (рекомендуется JPG до 2 МБ).
+        </div>
+      )}
 
       <div
         ref={containerRef}
@@ -129,7 +173,7 @@ export default function PlanPage() {
           <div className="plan-drop-hint" onClick={() => fileRef.current.click()}>
             <div className="plan-drop-icon">🗺</div>
             <div className="plan-drop-text">Нажмите или перетащите сюда<br/>изображение плана объекта</div>
-            <div className="plan-drop-sub">PNG, JPG, SVG — любой формат</div>
+            <div className="plan-drop-sub">PNG, JPG, SVG — рекомендуется до 2 МБ</div>
           </div>
         ) : (
           <img
