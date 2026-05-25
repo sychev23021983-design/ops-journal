@@ -59,13 +59,11 @@ export const api = {
   },
 
   plan: {
-    upload:    (file)  => uploadFile('/plan/upload', file),
-    imageUrl:  ()      => BASE + '/plan/image',
-    delete:    ()      => req('DELETE', '/plan/image'),
-    exists:    ()      => fetch(BASE + '/plan/image', {
-                            method: 'HEAD',
-                            headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {},
-                          }).then(r => r.ok).catch(() => false),
+    upload:   (file) => uploadFile('/plan/upload', file),
+    imageUrl: ()     => BASE + '/plan/image',
+    delete:   ()     => req('DELETE', '/plan/image'),
+    // GET /plan/check возвращает { exists: true/false } — без HEAD который даёт 405
+    exists:   ()     => req('GET', '/plan/check').then(d => d.exists).catch(() => false),
   },
 
   backup: {
