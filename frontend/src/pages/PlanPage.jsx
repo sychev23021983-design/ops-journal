@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useCallback } from "react"
 
 const STORAGE_KEY = "ops_plan_image"
 
 export default function PlanPage() {
-  const [imgSrc, setImgSrc]         = useState(() => {
+  const [imgSrc, setImgSrc] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY) || null } catch { return null }
   })
   const [scale, setScale]           = useState(1)
@@ -15,25 +15,23 @@ export default function PlanPage() {
   const imgRef                      = useRef(null)
   const touchRef                    = useRef(null)
 
-  // Вычислить масштаб "по ширине канваса"
-  const fitWidth = useCallback(() => {
+  // Масштаб по высоте канваса
+  const fitHeight = useCallback(() => {
     if (!containerRef.current || !imgRef.current) return
-    const cw = containerRef.current.clientWidth
-    const iw = imgRef.current.naturalWidth
-    if (!iw) return
-    const s = Math.min(cw / iw, 1)          // не больше 100%, если картинка меньше окна
-    setScale(+s.toFixed(3))
+    const ch = containerRef.current.clientHeight
+    const ih = imgRef.current.naturalHeight
+    if (!ch || !ih) return
+    setScale(+Math.min(ch / ih, 1).toFixed(3))
     setPos({ x: 0, y: 0 })
   }, [])
 
-  // После загрузки картинки — сразу fit-width
-  function onImgLoad() { fitWidth() }
+  function onImgLoad() { fitHeight() }
 
   function saveAndSet(dataUrl) {
-    try { localStorage.setItem(STORAGE_KEY, dataUrl) } catch { /* >5MB — игнорируем */ }
+    try { localStorage.setItem(STORAGE_KEY, dataUrl) } catch {}
     setImgSrc(dataUrl)
     setPos({ x: 0, y: 0 })
-    setScale(1)                               // fitWidth сработает в onImgLoad
+    // fitHeight сработает через onImgLoad
   }
 
   function handleFile(e) {
@@ -42,7 +40,7 @@ export default function PlanPage() {
     const reader = new FileReader()
     reader.onload = ev => saveAndSet(ev.target.result)
     reader.readAsDataURL(file)
-    e.target.value = ""                       // сброс input для повторной загрузки
+    e.target.value = ""
   }
 
   function handleDrop(e) {
@@ -58,7 +56,7 @@ export default function PlanPage() {
     if (!imgSrc) return
     e.preventDefault()
     const factor = e.deltaY > 0 ? 0.9 : 1.1
-    setScale(s => +Math.min(8, Math.max(0.1, s * factor)).toFixed(3))
+    setScale(s => +Math.min(8, Math.max(0.05, s * factor)).toFixed(3))
   }
 
   function onMouseDown(e) {
@@ -66,27 +64,24 @@ export default function PlanPage() {
     setIsDragging(true)
     startRef.current = { mx: e.clientX, my: e.clientY, ox: pos.x, oy: pos.y }
   }
-
   function onMouseMove(e) {
     if (!isDragging) return
     const { mx, my, ox, oy } = startRef.current
     setPos({ x: ox + (e.clientX - mx), y: oy + (e.clientY - my) })
   }
-
   function onMouseUp() { setIsDragging(false) }
 
   function onTouchStart(e) {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1)
       touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, ox: pos.x, oy: pos.y }
-    }
   }
   function onTouchMove(e) {
-    if (e.touches.length === 1 && touchRef.current) {
-      e.preventDefault()
-      const dx = e.touches[0].clientX - touchRef.current.x
-      const dy = e.touches[0].clientY - touchRef.current.y
-      setPos({ x: touchRef.current.ox + dx, y: touchRef.current.oy + dy })
-    }
+    if (e.touches.length !== 1 || !touchRef.current) return
+    e.preventDefault()
+    setPos({
+      x: touchRef.current.ox + (e.touches[0].clientX - touchRef.current.x),
+      y: touchRef.current.oy + (e.touches[0].clientY - touchRef.current.y),
+    })
   }
 
   function clearPlan() {
@@ -102,11 +97,11 @@ export default function PlanPage() {
           {imgSrc && (
             <>
               <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => +Math.min(8, s * 1.2).toFixed(3))}>＋</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => +Math.max(0.1, s * 0.8).toFixed(3))}>－</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setScale(s => +Math.max(0.05, s * 0.8).toFixed(3))}>－</button>
               <span className="plan-scale-badge">{Math.round(scale * 100)}%</span>
-              <button className="btn btn-ghost btn-sm" onClick={fitWidth} title="По ширине">⟺</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => { setScale(1); setPos({ x:0, y:0 }) }} title="Сброс">↺</button>
-              <button className="btn btn-danger btn-sm" onClick={clearPlan}>🗑 Удалить</button>
+              <button className="btn btn-ghost btn-sm" onClick={fitHeight} title="По высоте">↕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setScale(1); setPos({ x:0, y:0 }) }} title="100%">↺</button>
+              <button className="btn btn-danger btn-sm" onClick={clearPlan}>🗑</button>
             </>
           )}
           <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current.click()}>
