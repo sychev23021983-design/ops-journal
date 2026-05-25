@@ -58,6 +58,16 @@ export const api = {
     uploadFavicon:  (file)   => uploadFile('/settings/upload/favicon', file),
   },
 
+  plan: {
+    upload:    (file)  => uploadFile('/plan/upload', file),
+    imageUrl:  ()      => BASE + '/plan/image',
+    delete:    ()      => req('DELETE', '/plan/image'),
+    exists:    ()      => fetch(BASE + '/plan/image', {
+                            method: 'HEAD',
+                            headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {},
+                          }).then(r => r.ok).catch(() => false),
+  },
+
   backup: {
     exportUrl: () => BASE + '/backup/export',
     import:    (file) => uploadFile('/backup/import', file),
@@ -79,3 +89,4 @@ async function uploadFile(path, file) {
   }
   return res.json()
 }
+
